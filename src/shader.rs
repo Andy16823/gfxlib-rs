@@ -1,5 +1,7 @@
 use crate::utils;
 
+pub mod prebuild_shader;
+
 #[derive(Default)]
 pub struct Shader {
     pub source : String,

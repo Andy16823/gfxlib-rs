@@ -1,5 +1,8 @@
 use stb_image::image::{self, LoadResult};
 
+pub enum LoadState {
+    
+}
 
 #[derive(Clone, Default)]
 pub struct ImageTexture {
@@ -36,4 +39,9 @@ impl ImageTexture {
             }
         }
     }
+
+    pub fn drop_data(&mut self) {
+        self.data.clear();
+    }
+
 }

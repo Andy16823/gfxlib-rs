@@ -1,12 +1,4 @@
-use super::material::Material;
-
-#[derive(Default)]
-pub struct RenderData {
-    pub vao : u32,
-    pub vbo : u32,
-    pub ibo : u32,
-    pub tbo : u32
-}
+use super::{material::Material, RenderData};
 
 pub struct Mesh {
     pub vertices: Vec<f32>,

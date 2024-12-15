@@ -4,7 +4,7 @@ use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector4};
 
-use crate::{core::{Entity, Sprite, Transform}, shader::ShaderProgram};
+use crate::{core::{transform::Transform, sprite::Sprite, entity::Entity}, shader::ShaderProgram};
 
 use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, viewport::Viewport};
 
@@ -213,8 +213,6 @@ impl RenderDevice {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, mesh.render_data.ibo);
             gl::DrawElements(gl::TRIANGLES, mesh.indicies.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
             gl::BindVertexArray(0);
-
-            println!("Error while render {}", gl::GetError());
         }
     }
 

@@ -27,8 +27,6 @@ impl ICamera for Camera {
         let bottom = self.position.y - half_height;
         let top = self.position.y + half_height;
 
-        println!("vp width {} vp height {}", left, right);
-
         let p_mat = Matrix4::new_orthographic(left, right, bottom, top, self.near, self.far);
         return p_mat;
     }

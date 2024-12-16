@@ -85,6 +85,30 @@ impl Transform {
         self.rotation = Vector3::new(0.0, 0.0, z);
     }
 
+    pub fn set_scale(&mut self, scale : Vector3<f32>) {
+        self.scale = scale;
+    }
+
+    pub fn set_scale_xyz(&mut self, x : f32, y : f32, z : f32) {
+        self.scale = Vector3::new(x, y, z);
+    }
+
+    pub fn set_scale_xy(&mut self, x : f32, y : f32) {
+        self.scale = Vector3::new(x, y, 0.0);
+    }
+
+    pub fn set_scale_x(&mut self, x : f32) {
+        self.scale = Vector3::new(x, 0.0, 0.0);
+    }
+
+    pub fn set_scale_y(&mut self, y : f32) {
+        self.scale = Vector3::new(0.0, y, 0.0);
+    }
+
+    pub fn set_scale_z(&mut self, z : f32) {
+        self.scale = Vector3::new(0.0, 0.0, z);
+    }
+
     pub fn get_model_matrix(self) -> Matrix4<f32> {
         let translation = Matrix4::new_translation(&self.position);
         let rotation = Rotation::from_euler_angles(self.rotation.x.to_radians(), self.rotation.y.to_radians(), self.rotation.z.to_radians()).to_homogeneous();

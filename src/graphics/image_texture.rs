@@ -10,6 +10,7 @@ pub enum ImageTexture {
     },
     Loaded {
         id: u32,
+        dimensions: Vector2<u32>
     },
     Corrupted,
     Disposed

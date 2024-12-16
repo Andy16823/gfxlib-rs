@@ -2,7 +2,7 @@ use std::{collections::HashMap, ffi::CString};
 use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
-use crate::{core::{transform::Transform}, shader::ShaderProgram};
+use crate::{core::transform::Transform, shader::ShaderProgram, utils};
 use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::{RenderTarget}, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData};
 
 #[derive(Default)]
@@ -147,7 +147,7 @@ impl RenderDevice {
                         data.as_ptr() as *const GLvoid,
                     );
                     gl::BindTexture(gl::TEXTURE_2D, 0);
-                    *image_texture = ImageTexture::Loaded { id: texture_id };
+                    *image_texture = ImageTexture::Loaded { id: texture_id, dimensions: Vector2::new(dimensions.x, dimensions.y) };
                 }
             }
             _ => {
@@ -361,7 +361,7 @@ impl RenderDevice {
 
     pub fn draw_mesh(&mut self, transform : &mut Transform, mesh : &mut Mesh, shader_program : &mut ShaderProgram) {
         match mesh.material.diffuse_texture {
-            ImageTexture::Loaded { id } => {
+            ImageTexture::Loaded { id, dimensions: _ } => {
                 unsafe {
                     gl::Enable(gl::TEXTURE_2D);
                     gl::UseProgram(shader_program.program_id);
@@ -387,13 +387,15 @@ impl RenderDevice {
     }
 
     pub fn draw_texture2drt(&mut self, transform : Transform, render_target: &mut RenderTarget, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
-        self.draw_texture2di(transform, render_target.texture_id, color, shader_program);
+        let uv_buffer = utils::generate_uv_coords(render_target.size.x, render_target.size.y, Vector2::new(0, 0), Vector2::new(render_target.size.x, render_target.size.y));
+        self.draw_texture2di_internal(transform, render_target.texture_id, color, shader_program, uv_buffer);
     }
 
     pub fn draw_texture2d(&mut self, transform : Transform, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
         match image_texture {
-            ImageTexture::Loaded { id  } => {
-                self.draw_texture2di(transform, *id, color, shader_program);
+            ImageTexture::Loaded { id, dimensions } => {
+                let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, Vector2::new(0, 0), Vector2::new(dimensions.x, dimensions.y));
+                self.draw_texture2di_internal(transform, *id, color, shader_program, uv_buffer);
             }
             _ => {
                 eprintln!("Texture not loaded");
@@ -401,12 +403,40 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_texture2di(&mut self, transform : Transform, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+    pub fn draw_sub_texture2d(&mut self, transform : Transform, point : Vector2<u32>, size : Vector2<u32>, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+        match image_texture {
+            ImageTexture::Loaded { id, dimensions } => {
+                let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, point, size); 
+                self.draw_texture2di_internal(transform, *id, color, shader_program, uv_buffer);
+            }
+            _ => {
+                eprintln!("Texture not loaded"); 
+            }
+        }
+    }
+
+    pub fn draw_texture2di(&mut self, transform : Transform, texture_size : Vector2<u32>, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+        let uv_buffer = utils::generate_uv_coords(texture_size.x, texture_size.y, Vector2::new(0, 0), Vector2::new(texture_size.x, texture_size.y)); 
+        self.draw_texture2di_internal(transform, texture_id, color, shader_program, uv_buffer);
+    }
+
+    fn draw_texture2di_internal(&mut self, transform : Transform, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram, uv_buffer : Vec<f32>) {
         let shape = self.render_shapes.get("texture_shape").copied();
         match shape {
             Some(shape) => {
                 self.disable_depth_test();
                 unsafe {
+                    //change buffer data
+                    gl::BindBuffer(gl::ARRAY_BUFFER, shape.tbo);
+                    gl::BufferData(
+                        gl::ARRAY_BUFFER,
+                        (uv_buffer.len() * std::mem::size_of::<f32>()) as isize,
+                        uv_buffer.as_ptr() as *const _,
+                        gl::DYNAMIC_DRAW
+                    );
+                    gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+                    
+                    //draw
                     gl::Enable(gl::TEXTURE_2D);
                     gl::UseProgram(shader_program.program_id);
                     gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
@@ -487,7 +517,7 @@ impl RenderDevice {
 
     pub fn dispose_image_texture(&mut self, image_texture: &mut ImageTexture) {
         match image_texture {
-            ImageTexture::Loaded { id } => {
+            ImageTexture::Loaded { id, dimensions: _ } => {
                 unsafe {
                     gl::DeleteTextures(1, &*id);
                     *image_texture = ImageTexture::Disposed;

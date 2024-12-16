@@ -1,22 +1,24 @@
+use nalgebra::Vector2;
 use stb_image::image::{self, LoadResult};
 
-pub enum LoadState {
-    
-}
-
-#[derive(Clone, Default)]
-pub struct ImageTexture {
-    pub texture_id: u32,
-    pub texture_path: String,
-    pub width: usize,
-    pub height: usize,
-    pub data: Vec<u8>,
+#[derive(Clone)]
+pub enum ImageTexture {
+    PreLoad {
+        path: String,
+        dimensions: Vector2<u32>,
+        data: Vec<u8>,
+    },
+    Loaded {
+        id: u32,
+    },
+    Corrupted,
+    Disposed
 }
 
 impl ImageTexture {
-
+    
     pub fn load_from_file(file: &str) -> ImageTexture {
-        unsafe  {
+        unsafe {
             stb_image::stb_image::stbi_set_flip_vertically_on_load_thread(1);
         }
         let load_result = image::load(file);
@@ -24,24 +26,18 @@ impl ImageTexture {
         match load_result {
             LoadResult::Error(e) => {
                 println!("Error loading image: {}", e);
-                ImageTexture::default()
+                return ImageTexture::Corrupted;
             }
-            LoadResult::ImageU8(e) => ImageTexture {
-                texture_id: 0,
-                texture_path: file.to_string(),
-                width: e.width,
-                height: e.height,
+            LoadResult::ImageU8(e) => ImageTexture::PreLoad {
+                path: file.to_string(),
+                dimensions: Vector2::new(e.width as u32, e.height as u32),
                 data: e.data,
             },
             _ => {
                 println!("Unsupported image format.");
-                ImageTexture::default()
+                return  ImageTexture::Corrupted;
             }
         }
     }
-
-    pub fn drop_data(&mut self) {
-        self.data.clear();
-    }
-
+    
 }

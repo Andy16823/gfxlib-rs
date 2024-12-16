@@ -1,5 +1,3 @@
-use std::collections::btree_map::Keys;
-
 pub use glfw::Key;
 use glfw::{Action, Context, GlfwReceiver};
 use nalgebra::Vector2;

@@ -1,23 +1,23 @@
-use std::ffi::CString;
-
+use std::{collections::HashMap, ffi::CString};
 use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
-
-use crate::{core::{entity::Entity, sprite::{self, Sprite}, transform::Transform}, shader::ShaderProgram};
-
-use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::{self, RenderTarget}, viewport::Viewport, RenderData};
+use crate::{core::{transform::Transform}, shader::ShaderProgram};
+use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::{RenderTarget}, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData};
 
 #[derive(Default)]
 pub struct RenderDevice {
     viewport : Viewport,
     view_matrix : Matrix4<f32>,
-    projection_matrix : Matrix4<f32>
+    projection_matrix : Matrix4<f32>,
+    render_shapes : HashMap<String, RenderData>
 }
 
 impl RenderDevice {
 
     pub fn init(&mut self, window: &mut PWindow) {
+
+        //initial opengl with the glfw window
         gl::load_with(|s| window.get_proc_address(s) as *const _);
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
@@ -25,6 +25,12 @@ impl RenderDevice {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
+
+        //initial the render_shapes
+        let framebuffer_shape = self.init_shape(FramebufferShape);
+        self.render_shapes.insert(String::from("framebuffer_shape"), framebuffer_shape);
+        let texture_shape = self.init_shape(TextureShape);
+        self.render_shapes.insert(String::from("texture_shape"), texture_shape);
     }
 
     pub fn clear_color(&mut self, color: Vector4<f32>) {
@@ -37,6 +43,18 @@ impl RenderDevice {
         unsafe {
             
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+        }
+    }
+
+    pub fn disable_depth_test(&mut self) {
+        unsafe {
+            gl::Disable(gl::DEPTH_TEST);
+        }
+    }
+
+    pub fn enable_depth_test(&mut self) {
+        unsafe {
+            gl::Enable(gl::DEPTH_TEST);
         }
     }
 
@@ -83,66 +101,11 @@ impl RenderDevice {
             gl::BindRenderbuffer(gl::RENDERBUFFER, 0);
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
 
-            let mut vao : GLuint = 0;
-            gl::CreateVertexArrays(1, &mut vao);
-            gl::BindVertexArray(vao);
-
-            let buffer_data = RenderTarget::get_verticies();
-            let mut vbo : GLuint = 0;
-            gl::CreateBuffers(1, &mut vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (buffer_data.len() * std::mem::size_of::<f32>()) as isize,
-                buffer_data.as_ptr() as *const _,
-                gl::DYNAMIC_DRAW
-            );
-
-            gl::EnableVertexAttribArray(0); 
-            gl::VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                0,
-                std::ptr::null()
-            );
-
-            gl::EnableVertexAttribArray(1); 
-            gl::VertexAttribPointer(
-                1,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                0,
-                (12 * std::mem::size_of::<f32>()) as *const _
-            );
-
-            let indices = RenderTarget::get_indices();
-            let mut ibo: GLuint = 0;
-            gl::GenBuffers(1, &mut ibo);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (indices.len() * std::mem::size_of::<u32>()) as isize,
-                indices.as_ptr() as *const _,
-                gl::DYNAMIC_DRAW
-            );
-
-            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-            gl::BindVertexArray(0);
-
             return RenderTarget {
                 size : Vector2::new(width, height),
                 renderbuffer_id: renderbuffer_id,
                 texture_id: texture_id,
-                framebuffer_id: framebuffer_id,
-                render_data: RenderData {
-                    vbo: vbo,
-                    vao: vao,
-                    ibo: ibo,
-                    tbo: 0
-                }
+                framebuffer_id: framebuffer_id
             }
         }
     }
@@ -162,29 +125,34 @@ impl RenderDevice {
     }
 
     pub fn load_texture(&mut self, image_texture: &mut ImageTexture) {
-        unsafe {
-            let mut texture_id: GLuint = 0;
-            gl::GenTextures(1, &mut texture_id);
-            image_texture.texture_id = texture_id;
-
-            gl::BindTexture(gl::TEXTURE_2D, texture_id);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
-            gl::TexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGBA  as GLint,
-                image_texture.width as GLsizei,
-                image_texture.height as GLsizei,
-                0,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                image_texture.data.as_ptr() as *const GLvoid,
-            );
-            gl::BindTexture(gl::TEXTURE_2D, 0);
-            image_texture.drop_data();
+        match image_texture {
+            ImageTexture::PreLoad { path: _, dimensions, data } => {
+                unsafe {
+                    let mut texture_id: GLuint = 0;
+                    gl::GenTextures(1, &mut texture_id);
+                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as GLint);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as GLint);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+                    gl::TexImage2D(
+                        gl::TEXTURE_2D,
+                        0,
+                        gl::RGBA  as GLint,
+                        dimensions.x as GLsizei,
+                        dimensions.y as GLsizei,
+                        0,
+                        gl::RGBA,
+                        gl::UNSIGNED_BYTE,
+                        data.as_ptr() as *const GLvoid,
+                    );
+                    gl::BindTexture(gl::TEXTURE_2D, 0);
+                    *image_texture = ImageTexture::Loaded { id: texture_id };
+                }
+            }
+            _ => {
+                eprintln!("You try to load an corruped or unloaded texture!");
+            }
         }
     }
 
@@ -246,6 +214,81 @@ impl RenderDevice {
     pub fn unbind_render_target(&mut self) {
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+        }
+    }
+
+    pub fn init_shape<T: Shape>(&mut self, shape : T) -> RenderData{
+        unsafe {
+            //create and bin vertex array object
+            let mut vao : GLuint = 0;
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+
+            //create and bind the vertex buffer for the vao
+            let vertex_buffer = shape.get_vertex_buffer();
+            let mut vbo : GLuint = 0;
+            gl::GenBuffers(1, &mut vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (vertex_buffer.len() * std::mem::size_of::<f32>()) as isize,
+                vertex_buffer.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                0,
+                std::ptr::null()
+            );
+
+            //create and bind the uv buffer for the vao
+            let uv_buffer = shape.get_uv_buffer();
+            let mut tbo : GLuint = 0;
+            gl::GenBuffers(1, &mut tbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (uv_buffer.len() * std::mem::size_of::<f32>()) as isize,
+                uv_buffer.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+            gl::EnableVertexAttribArray(1);
+            gl::VertexAttribPointer(
+                1, 
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                0,
+                std::ptr::null()
+            );
+
+            //create and bind the index buffer for the vao
+            let index_buffer = shape.get_index_buffer();
+            let mut ibo : GLuint = 0;
+            gl::GenBuffers(1, &mut ibo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (index_buffer.len() * std::mem::size_of::<u32>()) as isize,
+                index_buffer.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+
+            gl::BindVertexArray(0);
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+
+            //return the render data for the shape
+            return RenderData{
+                vao: vao,
+                vbo: vbo,
+                ibo: ibo,
+                tbo: tbo,
+                index_count: index_buffer.len() as u32
+            };
         }
     }
 
@@ -312,55 +355,109 @@ impl RenderDevice {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
             mesh.render_data.vao = vao;
-        }
-    }
-
-    pub fn draw_sprite(&mut self, sprite : &mut Sprite, shader_program : &mut ShaderProgram) {
-        let mut transform = sprite.get_transform().clone();
-        unsafe {
-            gl::Disable(gl::DEPTH_TEST);
-        }
-        
-        self.draw_mesh(&mut transform, sprite.get_mesh(), shader_program);
-        unsafe {
-            gl::Enable(gl::DEPTH_TEST);
+            mesh.render_data.index_count = mesh.indicies.len() as u32;
         }
     }
 
     pub fn draw_mesh(&mut self, transform : &mut Transform, mesh : &mut Mesh, shader_program : &mut ShaderProgram) {
-        unsafe {
-            gl::Enable(gl::TEXTURE_2D);
-            gl::UseProgram(shader_program.program_id);
-            gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
-            gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
-            gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
-            gl::Uniform4f(self.get_uniform_location(shader_program, "vertexColor"), mesh.material.diffuse_color.x, mesh.material.diffuse_color.y, mesh.material.diffuse_color.z, mesh.material.diffuse_color.w);
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, mesh.material.diffuse_texture.texture_id);
-            gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
-
-            gl::BindVertexArray(mesh.render_data.vao);
-            // gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, mesh.render_data.ibo);
-            gl::DrawElements(gl::TRIANGLES, mesh.indicies.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
-            gl::BindVertexArray(0);
-            gl::Disable(gl::TEXTURE_2D);
+        match mesh.material.diffuse_texture {
+            ImageTexture::Loaded { id } => {
+                unsafe {
+                    gl::Enable(gl::TEXTURE_2D);
+                    gl::UseProgram(shader_program.program_id);
+                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+                    gl::Uniform4f(self.get_uniform_location(shader_program, "vertexColor"), mesh.material.diffuse_color.x, mesh.material.diffuse_color.y, mesh.material.diffuse_color.z, mesh.material.diffuse_color.w);
+                    gl::ActiveTexture(gl::TEXTURE0);
+                    gl::BindTexture(gl::TEXTURE_2D, id);
+                    gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
+        
+                    gl::BindVertexArray(mesh.render_data.vao);
+                    // gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, mesh.render_data.ibo);
+                    gl::DrawElements(gl::TRIANGLES, mesh.indicies.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
+                    gl::BindVertexArray(0);
+                    gl::Disable(gl::TEXTURE_2D);
+                }
+            }
+            _ => {
+                eprintln!("Texture not loaded");
+            }
         }
     }
 
+    pub fn draw_texture2drt(&mut self, transform : Transform, render_target: &mut RenderTarget, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+        self.draw_texture2di(transform, render_target.texture_id, color, shader_program);
+    }
+
+    pub fn draw_texture2d(&mut self, transform : Transform, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+        match image_texture {
+            ImageTexture::Loaded { id  } => {
+                self.draw_texture2di(transform, *id, color, shader_program);
+            }
+            _ => {
+                eprintln!("Texture not loaded");
+            }
+        }
+    }
+
+    pub fn draw_texture2di(&mut self, transform : Transform, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+        let shape = self.render_shapes.get("texture_shape").copied();
+        match shape {
+            Some(shape) => {
+                self.disable_depth_test();
+                unsafe {
+                    gl::Enable(gl::TEXTURE_2D);
+                    gl::UseProgram(shader_program.program_id);
+                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+                    gl::Uniform4f(self.get_uniform_location(shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
+                    gl::ActiveTexture(gl::TEXTURE0);
+                    gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                    gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
+
+                    gl::BindVertexArray(shape.vao);
+                    gl::DrawElements(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
+                    gl::BindVertexArray(0);
+                    gl::Disable(gl::TEXTURE_2D);
+                }
+                self.enable_depth_test();
+            }
+            None => {
+                eprintln!("Texture shape not found!");
+            }
+        }
+    }
 
     pub fn draw_render_target(&mut self, render_target : RenderTarget, shader_program : &mut ShaderProgram) {
-        unsafe {
-            gl::Disable(gl::DEPTH_TEST);
-            gl::Enable(gl::TEXTURE_2D);
-            gl::UseProgram(shader_program.program_id);
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, render_target.texture_id);
-            gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
-            gl::BindVertexArray(render_target.render_data.vao);
-            gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
-            gl::BindVertexArray(0);
-            gl::Disable(gl::TEXTURE_2D);
-            gl::Enable(gl::DEPTH_TEST);
+        let shape = self.render_shapes.get("framebuffer_shape").copied();
+        match shape {
+           Some(shape) => {
+                self.disable_depth_test();
+                unsafe {
+                    gl::Enable(gl::TEXTURE_2D);
+                    gl::UseProgram(shader_program.program_id);
+                    gl::ActiveTexture(gl::TEXTURE0);
+                    gl::BindTexture(gl::TEXTURE_2D, render_target.texture_id);
+                    gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
+                    gl::BindVertexArray(shape.vao);
+                    gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+                    gl::BindVertexArray(0);
+                    gl::Disable(gl::TEXTURE_2D);
+                }
+                self.enable_depth_test();
+           }
+           None => {
+                eprintln!("Framebuffer shape not found!");
+           } 
+        }
+    }
+
+    pub fn dispose(&mut self) {
+        let render_shapes = std::mem::take(&mut self.render_shapes);
+        for (_key, mut value) in render_shapes {
+            self.dispose_render_data(&mut value);
         }
     }
 
@@ -389,16 +486,20 @@ impl RenderDevice {
     }
 
     pub fn dispose_image_texture(&mut self, image_texture: &mut ImageTexture) {
-        unsafe {
-            if image_texture.texture_id != 0 {
-                gl::DeleteTextures(1, &image_texture.texture_id);
-                image_texture.texture_id = 0;
+        match image_texture {
+            ImageTexture::Loaded { id } => {
+                unsafe {
+                    gl::DeleteTextures(1, &*id);
+                    *image_texture = ImageTexture::Disposed;
+                }
+            }
+            _ => {
+                println!("Texture was not loaded!")
             }
         }
     }
 
     pub fn dispose_render_target(&mut self, render_target : &mut RenderTarget) {
-        self.dispose_render_data(&mut render_target.render_data);
         unsafe {
 
             if render_target.texture_id != 0 {
@@ -423,10 +524,6 @@ impl RenderDevice {
         if dispose_material == true {
             self.dispose_image_texture(&mut mesh.material.diffuse_texture);
         }
-    }
-
-    pub fn dispose_sprite(&mut self, sprite : &mut Sprite, dispose_material : bool) {
-        self.dispose_mesh(sprite.get_mesh(), dispose_material);
     }
    
     pub fn dispose_shader_program(&mut self, shader_program : &mut ShaderProgram) {

@@ -4,8 +4,8 @@ pub trait PrebuildShaderProgram {
     fn build_shader_program() -> ShaderProgram;
 }
 
-pub struct SpriteShader;
-impl PrebuildShaderProgram for SpriteShader {
+pub struct Texture2DShader ;
+impl PrebuildShaderProgram for Texture2DShader  {
     fn build_shader_program() -> ShaderProgram {
 
         let vertex_shader = Shader {

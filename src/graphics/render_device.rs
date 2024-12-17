@@ -2,8 +2,8 @@ use std::{collections::HashMap, ffi::CString};
 use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
-use crate::{core::transform::Transform, shader::ShaderProgram, utils};
-use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::{RenderTarget}, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData};
+use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
+use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData};
 
 #[derive(Default)]
 pub struct RenderDevice {
@@ -359,7 +359,7 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_mesh(&mut self, transform : &mut Transform, mesh : &mut Mesh, shader_program : &mut ShaderProgram) {
+    pub fn draw_mesh(&mut self, transform : &mut Transform3D, mesh : &mut Mesh, shader_program : &mut ShaderProgram) {
         match mesh.material.diffuse_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
                 unsafe {
@@ -386,15 +386,15 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_texture2drt(&mut self, transform : Transform, render_target: &mut RenderTarget, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
-        let uv_buffer = utils::generate_uv_coords(render_target.size.x, render_target.size.y, Vector2::new(0, 0), Vector2::new(render_target.size.x, render_target.size.y));
+    pub fn draw_texture2drt<T : ITransform>(&mut self, transform : T, render_target: &mut RenderTarget, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+        let uv_buffer = utils::generate_uv_coords(render_target.size.x, render_target.size.y, Vector2::new(0.0, 0.0), Vector2::new(render_target.size.x as f32, render_target.size.y as f32));
         self.draw_texture2di_internal(transform, render_target.texture_id, color, shader_program, uv_buffer);
     }
 
-    pub fn draw_texture2d(&mut self, transform : Transform, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+    pub fn draw_texture2d<T: ITransform>(&mut self, transform : T, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions } => {
-                let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, Vector2::new(0, 0), Vector2::new(dimensions.x, dimensions.y));
+                let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, Vector2::new(0.0, 0.0), Vector2::new(dimensions.x as f32, dimensions.y as f32));
                 self.draw_texture2di_internal(transform, *id, color, shader_program, uv_buffer);
             }
             _ => {
@@ -403,7 +403,7 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_sub_texture2d(&mut self, transform : Transform, point : Vector2<u32>, size : Vector2<u32>, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+    pub fn draw_sub_texture2d<T: ITransform>(&mut self, transform : T, point : Vector2<f32>, size : Vector2<f32>, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions } => {
                 let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, point, size); 
@@ -415,12 +415,12 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_texture2di(&mut self, transform : Transform, texture_size : Vector2<u32>, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
-        let uv_buffer = utils::generate_uv_coords(texture_size.x, texture_size.y, Vector2::new(0, 0), Vector2::new(texture_size.x, texture_size.y)); 
+    pub fn draw_texture2di<T: ITransform>(&mut self, transform : T, texture_size : Vector2<f32>, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+        let uv_buffer = utils::generate_uv_coords(texture_size.x as u32, texture_size.y as u32, Vector2::new(0.0, 0.0), Vector2::new(texture_size.x, texture_size.y)); 
         self.draw_texture2di_internal(transform, texture_id, color, shader_program, uv_buffer);
     }
 
-    fn draw_texture2di_internal(&mut self, transform : Transform, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram, uv_buffer : Vec<f32>) {
+    fn draw_texture2di_internal<T: ITransform>(&mut self, transform : T, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram, uv_buffer : Vec<f32>) {
         let shape = self.render_shapes.get("texture_shape").copied();
         match shape {
             Some(shape) => {

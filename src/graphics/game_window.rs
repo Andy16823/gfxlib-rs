@@ -49,6 +49,10 @@ impl Window {
         glfw::flush_messages(&self.events).collect()
     }
 
+    pub fn close_window(&mut self) {
+        self.handle.set_should_close(true);
+    }
+
     pub fn should_close(&self) -> bool {
         self.handle.should_close()
     }

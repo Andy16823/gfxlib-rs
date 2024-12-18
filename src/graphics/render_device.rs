@@ -514,7 +514,7 @@ impl RenderDevice {
         match image_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
                 match instance_batch {
-                    InstanceBatch::Loaded { instances, mbo, cbo:_ } => {
+                    InstanceBatch::Loaded { instances, mbo, cbo } => {
                         let shape = self.render_shapes.get("texture_batch_shape").copied();
                         match shape {
                             Some(shape) => {
@@ -522,31 +522,38 @@ impl RenderDevice {
                                     let vec4_size = std::mem::size_of::<f32>() * 4;
                                     let matrix_stride = vec4_size * 4;
 
+                                    //Prepare shader
                                     gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
                                     gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
                                     gl::ActiveTexture(gl::TEXTURE0);
                                     gl::BindTexture(gl::TEXTURE_2D, *id);
                                     gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
 
+                                    //Bind the vao
                                     gl::BindVertexArray(shape.vao);
-                                    gl::BindBuffer(gl::ARRAY_BUFFER, *mbo);
 
+                                    //Bind the color buffer and assign it to the location per instance
+                                    gl::BindBuffer(gl::ARRAY_BUFFER, *cbo);
                                     gl::EnableVertexAttribArray(2);
-                                    gl::VertexAttribPointer(2, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (0 * vec4_size) as *const _);
+                                    gl::VertexAttribPointer(2, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
                                     gl::VertexAttribDivisor(2, 1);
 
+                                    //Bind the transforms buffer and assign it to the locations per instance
+                                    gl::BindBuffer(gl::ARRAY_BUFFER, *mbo);
                                     gl::EnableVertexAttribArray(3);
-                                    gl::VertexAttribPointer(3, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (1 * vec4_size) as *const _);
+                                    gl::VertexAttribPointer(3, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (0 * vec4_size) as *const _);
                                     gl::VertexAttribDivisor(3, 1);
-
                                     gl::EnableVertexAttribArray(4);
-                                    gl::VertexAttribPointer(4, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (2 * vec4_size) as *const _);
+                                    gl::VertexAttribPointer(4, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (1 * vec4_size) as *const _);
                                     gl::VertexAttribDivisor(4, 1);
-
                                     gl::EnableVertexAttribArray(5);
-                                    gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (3 * vec4_size) as *const _);
+                                    gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (2 * vec4_size) as *const _);
                                     gl::VertexAttribDivisor(5, 1);
+                                    gl::EnableVertexAttribArray(6);
+                                    gl::VertexAttribPointer(6, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (3 * vec4_size) as *const _);
+                                    gl::VertexAttribDivisor(6, 1);
 
+                                    //Draw the elements instanced
                                     gl::DrawElementsInstanced(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null(), instances.len() as i32);
                                     gl::BindVertexArray(0);
                                     gl::BindBuffer(gl::ARRAY_BUFFER, 0);

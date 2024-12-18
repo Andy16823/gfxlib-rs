@@ -3,7 +3,7 @@ use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
-use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, Texture2DBatch, RenderData};
+use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData, Texture2DBatch, Texture2DInstance};
 
 #[derive(Default)]
 pub struct RenderDevice {
@@ -159,7 +159,7 @@ impl RenderDevice {
         }
     }
 
-    pub fn load_instance_batch(&mut self, instance_batch : &mut Texture2DBatch) {
+    pub fn load_texture2d_batch(&mut self, instance_batch : &mut Texture2DBatch) {
         match instance_batch {
             Texture2DBatch::PreLoad { instances } => {
                 let buffers = Texture2DBatch::create_buffers(instances);
@@ -200,6 +200,36 @@ impl RenderDevice {
             }
             _ => {
                 eprintln!("You try to load an allready loaded instance batch.");
+            }
+        }
+    }
+
+    pub fn update_texture2d_batch_instance(&mut self, texture2d_batch : &mut Texture2DBatch, index : isize, instance : Texture2DInstance) {
+        match texture2d_batch {
+            Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
+                unsafe {
+                    instances[index as usize] = instance.clone();
+                    //update the transform
+                    let mut size = 16 * std::mem::size_of::<f32>() as isize;
+                    let mut offset = index * size;
+                    gl::BindBuffer(gl::ARRAY_BUFFER, *mbo);
+                    gl::BufferSubData(gl::ARRAY_BUFFER, offset, size, instance.transform.as_slice().as_ptr() as *const _);
+                    //update the color
+                    size = 4 * std::mem::size_of::<f32>() as isize;
+                    offset = index * size;
+                    gl::BindBuffer(gl::ARRAY_BUFFER, *cbo);
+                    gl::BufferSubData(gl::ARRAY_BUFFER, offset, size, instance.color.as_slice().as_ptr() as *const _);
+                    //update uv transform
+                    size = 4 * std::mem::size_of::<f32>() as isize;
+                    offset = index * size;
+                    gl::BindBuffer(gl::ARRAY_BUFFER, *uvto);
+                    gl::BufferSubData(gl::ARRAY_BUFFER, offset, size, instance.uv_transform.as_slice().as_ptr() as *const _);
+                    //reset buffer
+                    gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+                }
+            }
+            _ => {
+                eprintln!("Error: Invalid Texture2DBatch state. Expected 'Loaded' state. Ensure the Texture2DBatch is properly loaded before updating.");
             }
         }
     }
@@ -691,6 +721,22 @@ impl RenderDevice {
             gl::DeleteProgram(shader_program.program_id);
             println!("Disposed shader programm {}", shader_program.program_id);
             shader_program.program_id = 0;
+        }
+    }
+
+    pub fn dispose_texture2d_batch(&mut self, instance_batch : &mut Texture2DBatch) {
+        match instance_batch {
+            Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
+                unsafe {
+                    gl::DeleteBuffers(1, mbo);
+                    gl::DeleteBuffers(1, cbo);
+                    gl::DeleteBuffers(1, uvto);
+                    *instance_batch = Texture2DBatch::Disposed { instances: instances.clone() }
+                }
+            }
+            _ => {
+                println!("The texture batch was not loaded!");
+            }
         }
     }
 

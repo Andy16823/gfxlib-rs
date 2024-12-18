@@ -75,6 +75,10 @@ pub enum Texture2DBatch {
         cbo: u32,
         uvto: u32
     },
+    /// Disposed state
+    Disposed {
+        instances: Vec<Texture2DInstance>
+    }
 }
 
 

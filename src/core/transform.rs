@@ -1,6 +1,6 @@
 use nalgebra::{Matrix4, Rotation, Vector2, Vector3};
 
-pub trait ITransform {
+pub trait ITransform: Clone {
     fn get_model_matrix(self) -> Matrix4<f32>;
 }
 

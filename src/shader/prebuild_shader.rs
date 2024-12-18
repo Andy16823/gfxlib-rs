@@ -103,3 +103,57 @@ impl PrebuildShaderProgram for ScreenShader {
     }
 
 }
+
+pub struct Texture2DBatchShader;
+impl PrebuildShaderProgram for Texture2DBatchShader {
+
+    fn build_shader_program() -> ShaderProgram {
+
+        let vertex_shader = Shader {
+            source: String::from("
+                #version 330 core
+                layout(location = 0) in vec3 inPosition;
+                layout(location = 1) in vec2 inTexCoord;
+                layout(location = 2) in mat4 inInstanceMatrix;
+
+                uniform mat4 p_mat;
+                uniform mat4 v_mat;
+
+                out vec3 fragPos;
+                out vec2 texCoord;
+
+                void main() {
+                    mat4 mvp = p_mat * v_mat * inInstanceMatrix;
+                    gl_Position = mvp * vec4(inPosition, 1.0);
+                    fragPos = inPosition;
+                    texCoord = inTexCoord;
+                }
+            "),
+        };
+
+        let fragment_shader = Shader {
+            source: String::from("
+                #version 330 core
+
+                in vec3 fragPos;
+                in vec2 texCoord;
+
+                out vec4 FragColor;
+                
+                uniform sampler2D textureSampler;
+
+                void main() {
+                    vec4 texColor = texture(textureSampler, texCoord);
+                    FragColor = texColor;
+                }
+            ")
+        };
+
+        return ShaderProgram {
+            vertex_shader: vertex_shader,
+            fragment_shader: fragment_shader,
+            program_id: 0
+        }
+    }
+
+}

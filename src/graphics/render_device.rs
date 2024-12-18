@@ -3,14 +3,15 @@ use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
-use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData};
+use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, InstanceBatch, RenderData};
 
 #[derive(Default)]
 pub struct RenderDevice {
     viewport : Viewport,
     view_matrix : Matrix4<f32>,
     projection_matrix : Matrix4<f32>,
-    render_shapes : HashMap<String, RenderData>
+    render_shapes : HashMap<String, RenderData>,
+    shader_program: u32
 }
 
 impl RenderDevice {
@@ -31,6 +32,8 @@ impl RenderDevice {
         self.render_shapes.insert(String::from("framebuffer_shape"), framebuffer_shape);
         let texture_shape = self.init_shape(TextureShape);
         self.render_shapes.insert(String::from("texture_shape"), texture_shape);
+        let texture_batch_shape = self.init_shape(TextureShape);
+        self.render_shapes.insert(String::from("texture_batch_shape"), texture_batch_shape);
     }
 
     pub fn clear_color(&mut self, color: Vector4<f32>) {
@@ -156,6 +159,41 @@ impl RenderDevice {
         }
     }
 
+    pub fn load_instance_batch(&mut self, instance_batch : &mut InstanceBatch) {
+        match instance_batch {
+            InstanceBatch::PreLoad { instances } => {
+                let buffers = InstanceBatch::create_buffers(instances);
+                let mut mbo : GLuint = 0;
+                let mut cbo : GLuint = 0;
+                unsafe {
+                    gl::GenBuffers(1, &mut mbo);
+                    gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
+                    gl::BufferData(
+                        gl::ARRAY_BUFFER,
+                        (buffers.0.len() * std::mem::size_of::<f32>()) as isize,
+                        buffers.0.as_ptr() as *const _,
+                        gl::DYNAMIC_DRAW
+                    );
+
+                    gl::GenBuffers(1, &mut cbo);
+                    gl::BindBuffer(gl::ARRAY_BUFFER, cbo);
+                    gl::BufferData(
+                        gl::ARRAY_BUFFER,
+                        (buffers.1.len() * std::mem::size_of::<f32>()) as isize,
+                        buffers.1.as_ptr() as *const _,
+                        gl::DYNAMIC_DRAW
+                    );
+
+                    gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+                }
+                *instance_batch = InstanceBatch::Loaded { instances: instances.clone(), mbo: mbo, cbo : cbo }
+            }
+            _ => {
+                eprintln!("You try to load an allready loaded instance batch.");
+            }
+        }
+    }
+
     pub fn compile_shader(&mut self, source : &str, shader_type : GLuint) -> u32{
         unsafe {
             let shader_id = gl::CreateShader(shader_type);
@@ -196,10 +234,24 @@ impl RenderDevice {
         }
     }
 
-    pub fn get_uniform_location(&mut self, shader_program : &mut ShaderProgram, name : &str) -> i32 {
+    pub fn bind_shader_program(&mut self, shader_program : &mut ShaderProgram) {
+        unsafe {
+            gl::UseProgram(shader_program.program_id);
+            self.shader_program = shader_program.program_id;
+        }
+    }
+
+    pub fn unbind_shader_program(&mut self) {
+        unsafe {
+            gl::UseProgram(0);
+            self.shader_program = 0;
+        }
+    }
+
+    pub fn get_uniform_location(&mut self, program_id : u32, name : &str) -> i32 {
         let name = CString::new(name).expect("CString::new failed");
         unsafe {
-            let location= gl::GetUniformLocation(shader_program.program_id, name.as_ptr());
+            let location= gl::GetUniformLocation(program_id, name.as_ptr());
             return location;
         }
     }
@@ -359,22 +411,20 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_mesh(&mut self, transform : &mut Transform3D, mesh : &mut Mesh, shader_program : &mut ShaderProgram) {
+    pub fn draw_mesh(&mut self, transform : &mut Transform3D, mesh : &mut Mesh) {
         match mesh.material.diffuse_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
                 unsafe {
                     gl::Enable(gl::TEXTURE_2D);
-                    gl::UseProgram(shader_program.program_id);
-                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
-                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
-                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
-                    gl::Uniform4f(self.get_uniform_location(shader_program, "vertexColor"), mesh.material.diffuse_color.x, mesh.material.diffuse_color.y, mesh.material.diffuse_color.z, mesh.material.diffuse_color.w);
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+                    gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), mesh.material.diffuse_color.x, mesh.material.diffuse_color.y, mesh.material.diffuse_color.z, mesh.material.diffuse_color.w);
                     gl::ActiveTexture(gl::TEXTURE0);
                     gl::BindTexture(gl::TEXTURE_2D, id);
-                    gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
+                    gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
         
                     gl::BindVertexArray(mesh.render_data.vao);
-                    // gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, mesh.render_data.ibo);
                     gl::DrawElements(gl::TRIANGLES, mesh.indicies.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
                     gl::BindVertexArray(0);
                     gl::Disable(gl::TEXTURE_2D);
@@ -386,16 +436,16 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_texture2drt<T : ITransform>(&mut self, transform : T, render_target: &mut RenderTarget, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+    pub fn draw_texture2drt<T : ITransform>(&mut self, transform : T, render_target: &mut RenderTarget, color: Vector4<f32>) {
         let uv_buffer = utils::generate_uv_coords(render_target.size.x, render_target.size.y, Vector2::new(0.0, 0.0), Vector2::new(render_target.size.x as f32, render_target.size.y as f32));
-        self.draw_texture2di_internal(transform, render_target.texture_id, color, shader_program, uv_buffer);
+        self.draw_texture2di_internal(transform, render_target.texture_id, color, uv_buffer);
     }
 
-    pub fn draw_texture2d<T: ITransform>(&mut self, transform : T, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+    pub fn draw_texture2d<T: ITransform>(&mut self, transform : T, image_texture: &mut ImageTexture, color: Vector4<f32>) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions } => {
                 let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, Vector2::new(0.0, 0.0), Vector2::new(dimensions.x as f32, dimensions.y as f32));
-                self.draw_texture2di_internal(transform, *id, color, shader_program, uv_buffer);
+                self.draw_texture2di_internal(transform, *id, color, uv_buffer);
             }
             _ => {
                 eprintln!("Texture not loaded");
@@ -403,11 +453,11 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_sub_texture2d<T: ITransform>(&mut self, transform : T, point : Vector2<f32>, size : Vector2<f32>, image_texture: &mut ImageTexture, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+    pub fn draw_sub_texture2d<T: ITransform>(&mut self, transform : T, point : Vector2<f32>, size : Vector2<f32>, image_texture: &mut ImageTexture, color: Vector4<f32>) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions } => {
                 let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, point, size); 
-                self.draw_texture2di_internal(transform, *id, color, shader_program, uv_buffer);
+                self.draw_texture2di_internal(transform, *id, color, uv_buffer);
             }
             _ => {
                 eprintln!("Texture not loaded"); 
@@ -415,12 +465,12 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_texture2di<T: ITransform>(&mut self, transform : T, texture_size : Vector2<f32>, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram) {
+    pub fn draw_texture2di<T: ITransform>(&mut self, transform : T, texture_size : Vector2<f32>, texture_id: u32, color: Vector4<f32>) {
         let uv_buffer = utils::generate_uv_coords(texture_size.x as u32, texture_size.y as u32, Vector2::new(0.0, 0.0), Vector2::new(texture_size.x, texture_size.y)); 
-        self.draw_texture2di_internal(transform, texture_id, color, shader_program, uv_buffer);
+        self.draw_texture2di_internal(transform, texture_id, color, uv_buffer);
     }
 
-    fn draw_texture2di_internal<T: ITransform>(&mut self, transform : T, texture_id: u32, color: Vector4<f32>, shader_program : &mut ShaderProgram, uv_buffer : Vec<f32>) {
+    fn draw_texture2di_internal<T: ITransform>(&mut self, transform : T, texture_id: u32, color: Vector4<f32>, uv_buffer : Vec<f32>) {
         let shape = self.render_shapes.get("texture_shape").copied();
         match shape {
             Some(shape) => {
@@ -438,14 +488,13 @@ impl RenderDevice {
                     
                     //draw
                     gl::Enable(gl::TEXTURE_2D);
-                    gl::UseProgram(shader_program.program_id);
-                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
-                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
-                    gl::UniformMatrix4fv(self.get_uniform_location(shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
-                    gl::Uniform4f(self.get_uniform_location(shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+                    gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
                     gl::ActiveTexture(gl::TEXTURE0);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
-                    gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
+                    gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
 
                     gl::BindVertexArray(shape.vao);
                     gl::DrawElements(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
@@ -460,17 +509,75 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_render_target(&mut self, render_target : RenderTarget, shader_program : &mut ShaderProgram) {
+
+    pub fn draw_texture2d_batch(&mut self, image_texture: &mut ImageTexture, instance_batch : &mut InstanceBatch) {
+        match image_texture {
+            ImageTexture::Loaded { id, dimensions: _ } => {
+                match instance_batch {
+                    InstanceBatch::Loaded { instances, mbo, cbo:_ } => {
+                        let shape = self.render_shapes.get("texture_batch_shape").copied();
+                        match shape {
+                            Some(shape) => {
+                                unsafe {
+                                    let vec4_size = std::mem::size_of::<f32>() * 4;
+                                    let matrix_stride = vec4_size * 4;
+
+                                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                                    gl::ActiveTexture(gl::TEXTURE0);
+                                    gl::BindTexture(gl::TEXTURE_2D, *id);
+                                    gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
+
+                                    gl::BindVertexArray(shape.vao);
+                                    gl::BindBuffer(gl::ARRAY_BUFFER, *mbo);
+
+                                    gl::EnableVertexAttribArray(2);
+                                    gl::VertexAttribPointer(2, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (0 * vec4_size) as *const _);
+                                    gl::VertexAttribDivisor(2, 1);
+
+                                    gl::EnableVertexAttribArray(3);
+                                    gl::VertexAttribPointer(3, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (1 * vec4_size) as *const _);
+                                    gl::VertexAttribDivisor(3, 1);
+
+                                    gl::EnableVertexAttribArray(4);
+                                    gl::VertexAttribPointer(4, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (2 * vec4_size) as *const _);
+                                    gl::VertexAttribDivisor(4, 1);
+
+                                    gl::EnableVertexAttribArray(5);
+                                    gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (3 * vec4_size) as *const _);
+                                    gl::VertexAttribDivisor(5, 1);
+
+                                    gl::DrawElementsInstanced(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null(), instances.len() as i32);
+                                    gl::BindVertexArray(0);
+                                    gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+                                }
+                            }
+                            None => {
+                                eprintln!("Shape not found");
+                            }
+                        }
+                    }
+                    _ => {
+                        eprintln!("You try to draw an instance batch wich isn't loaded");
+                    }
+                }
+            }
+            _ => {
+                eprintln!("You try to draw an instance batch wich isn't loaded");
+            }
+        }
+    }
+
+    pub fn draw_render_target(&mut self, render_target : RenderTarget) {
         let shape = self.render_shapes.get("framebuffer_shape").copied();
         match shape {
            Some(shape) => {
                 self.disable_depth_test();
                 unsafe {
                     gl::Enable(gl::TEXTURE_2D);
-                    gl::UseProgram(shader_program.program_id);
                     gl::ActiveTexture(gl::TEXTURE0);
                     gl::BindTexture(gl::TEXTURE_2D, render_target.texture_id);
-                    gl::Uniform1i(self.get_uniform_location(shader_program, "textureSampler"), 0);
+                    gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
                     gl::BindVertexArray(shape.vao);
                     gl::DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
                     gl::BindVertexArray(0);

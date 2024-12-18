@@ -3,7 +3,7 @@ use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
-use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, InstanceBatch, RenderData};
+use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, Texture2DBatch, RenderData};
 
 #[derive(Default)]
 pub struct RenderDevice {
@@ -159,12 +159,13 @@ impl RenderDevice {
         }
     }
 
-    pub fn load_instance_batch(&mut self, instance_batch : &mut InstanceBatch) {
+    pub fn load_instance_batch(&mut self, instance_batch : &mut Texture2DBatch) {
         match instance_batch {
-            InstanceBatch::PreLoad { instances } => {
-                let buffers = InstanceBatch::create_buffers(instances);
+            Texture2DBatch::PreLoad { instances } => {
+                let buffers = Texture2DBatch::create_buffers(instances);
                 let mut mbo : GLuint = 0;
                 let mut cbo : GLuint = 0;
+                let mut uvto: GLuint = 0;
                 unsafe {
                     gl::GenBuffers(1, &mut mbo);
                     gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
@@ -184,9 +185,18 @@ impl RenderDevice {
                         gl::DYNAMIC_DRAW
                     );
 
+                    gl::GenBuffers(1, &mut uvto);
+                    gl::BindBuffer(gl::ARRAY_BUFFER, uvto);
+                    gl::BufferData(
+                        gl::ARRAY_BUFFER,
+                        (buffers.2.len() * std::mem::size_of::<f32>()) as isize,
+                        buffers.2.as_ptr() as *const _,
+                        gl::DYNAMIC_DRAW
+                    );
+
                     gl::BindBuffer(gl::ARRAY_BUFFER, 0);
                 }
-                *instance_batch = InstanceBatch::Loaded { instances: instances.clone(), mbo: mbo, cbo : cbo }
+                *instance_batch = Texture2DBatch::Loaded { instances: instances.clone(), mbo: mbo, cbo : cbo, uvto: uvto}
             }
             _ => {
                 eprintln!("You try to load an allready loaded instance batch.");
@@ -510,11 +520,11 @@ impl RenderDevice {
     }
 
 
-    pub fn draw_texture2d_batch(&mut self, image_texture: &mut ImageTexture, instance_batch : &mut InstanceBatch) {
+    pub fn draw_texture2d_batch(&mut self, image_texture: &mut ImageTexture, instance_batch : &mut Texture2DBatch) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
                 match instance_batch {
-                    InstanceBatch::Loaded { instances, mbo, cbo } => {
+                    Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
                         let shape = self.render_shapes.get("texture_batch_shape").copied();
                         match shape {
                             Some(shape) => {
@@ -553,6 +563,12 @@ impl RenderDevice {
                                     gl::VertexAttribPointer(6, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (3 * vec4_size) as *const _);
                                     gl::VertexAttribDivisor(6, 1);
 
+                                    //Bind the uv transform buffer
+                                    gl::BindBuffer(gl::ARRAY_BUFFER, *uvto);
+                                    gl::EnableVertexAttribArray(7);
+                                    gl::VertexAttribPointer(7, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+                                    gl::VertexAttribDivisor(7, 1);
+
                                     //Draw the elements instanced
                                     gl::DrawElementsInstanced(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null(), instances.len() as i32);
                                     gl::BindVertexArray(0);
@@ -560,17 +576,17 @@ impl RenderDevice {
                                 }
                             }
                             None => {
-                                eprintln!("Shape not found");
+                                eprintln!("Error: Render shape 'texture_batch_shape' not found. Ensure that the render_shapes map contains a valid entry for 'texture_batch_shape'.");
                             }
                         }
                     }
                     _ => {
-                        eprintln!("You try to draw an instance batch wich isn't loaded");
+                        eprintln!("Error: The provided InstanceBatch is not loaded. Ensure that the InstanceBatch is properly initialized and loaded before attempting to draw.");
                     }
                 }
             }
             _ => {
-                eprintln!("You try to draw an instance batch wich isn't loaded");
+                eprintln!("Error: The provided ImageTexture is not loaded. Ensure that the ImageTexture is properly initialized and loaded before attempting to draw.");
             }
         }
     }

@@ -116,6 +116,7 @@ impl PrebuildShaderProgram for Texture2DBatchShader {
                 layout(location = 1) in vec2 inTexCoord;
                 layout(location = 2) in vec4 inInstanceVertexColor;
                 layout(location = 3) in mat4 inInstanceMatrix;
+                layout(location = 7) in vec4 inUvTransform;
 
                 uniform mat4 p_mat;
                 uniform mat4 v_mat;
@@ -123,6 +124,7 @@ impl PrebuildShaderProgram for Texture2DBatchShader {
                 out vec3 fragPos;
                 out vec2 texCoord;
                 out vec4 vertexColor;
+                out vec4 uvTransform;
 
                 void main() {
                     mat4 mvp = p_mat * v_mat * inInstanceMatrix;
@@ -130,6 +132,7 @@ impl PrebuildShaderProgram for Texture2DBatchShader {
                     fragPos = inPosition;
                     texCoord = inTexCoord;
                     vertexColor = inInstanceVertexColor;
+                    uvTransform = inUvTransform;
                 }
             "),
         };
@@ -141,13 +144,15 @@ impl PrebuildShaderProgram for Texture2DBatchShader {
                 in vec3 fragPos;
                 in vec2 texCoord;
                 in vec4 vertexColor;
+                in vec4 uvTransform;
 
                 out vec4 FragColor;
                 
                 uniform sampler2D textureSampler;
 
                 void main() {
-                    vec4 texColor = texture(textureSampler, texCoord);
+                    vec2 transformedTexCoord = texCoord * uvTransform.xy + uvTransform.zw;
+                    vec4 texColor = texture(textureSampler, transformedTexCoord);
                     FragColor = texColor * vertexColor;
                 }
             ")

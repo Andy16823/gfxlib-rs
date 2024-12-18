@@ -14,6 +14,8 @@ pub mod render_target;
 pub mod shapes;
 pub mod viewport;
 
+
+/// Represents data required for rendering, such as vertex array, buffer objects, and index count.
 #[derive(Default, Clone, Copy)]
 pub struct RenderData {
     pub vao: u32,
@@ -23,43 +25,84 @@ pub struct RenderData {
     pub index_count: u32,
 }
 
+/// Represents an instance of a 2D texture with its transformation matrix, color, and UV transformation.
 #[derive(Default, Clone)]
-pub struct RenderInstance {
+pub struct Texture2DInstance {
     pub transform: Matrix4<f32>,
     pub color: Vector4<f32>,
+    pub uv_transform: Vector4<f32>
 }
 
-impl RenderInstance {
-    pub fn new(transform : Matrix4<f32>, color : Vector4<f32>) -> RenderInstance {
-        RenderInstance{
-            transform, color
+
+impl Texture2DInstance {
+
+    /// Creates a new `Texture2DInstance` with the given transformation, color, and UV transformation.
+    ///
+    /// # Arguments
+    /// - `transform`: The transformation matrix.
+    /// - `color`: The RGBA color vector.
+    /// - `uv_transform`: The UV transformation vector.
+    ///
+    /// # Returns
+    /// - A new `Texture2DInstance` object.
+    pub fn new(transform : Matrix4<f32>, color : Vector4<f32>, uv_transform : Vector4<f32>) -> Texture2DInstance {
+        Texture2DInstance{
+            transform, color, uv_transform
         }
     }
+
+    /// Provides a default UV transformation vector.
+    ///
+    /// # Returns
+    /// - A `Vector4<f32>` representing the default UV transformation `[1.0, 1.0, 0.0, 0.0]`.
+    pub fn default_uv_transform() -> Vector4<f32> {
+        return Vector4::new(1.0, 1.0, 0.0, 0.0);
+    }
+
 }
 
+/// Represents a batch of 2D textures, which can be in either a preloaded or loaded state.
 #[derive(Clone)]
-pub enum InstanceBatch {
+pub enum Texture2DBatch {
+    /// Preloaded state, where texture instances are stored but no GPU buffers are allocated yet.
     PreLoad {
-        instances: Vec<RenderInstance>,
+        instances: Vec<Texture2DInstance>,
     },
+    /// Loaded state, where GPU buffers are allocated for texture instances.
     Loaded {
-        instances: Vec<RenderInstance>,
+        instances: Vec<Texture2DInstance>,
         mbo: u32,
-        cbo: u32
+        cbo: u32,
+        uvto: u32
     },
 }
 
-impl InstanceBatch {
+
+impl Texture2DBatch {
+
+    /// Creates a new `Texture2DBatch` in the `PreLoad` state.
+    ///
+    /// # Returns
+    /// - A new `Texture2DBatch` object in the preloaded state.
     pub fn new() -> Self {
-        InstanceBatch::PreLoad {
+        Texture2DBatch::PreLoad {
             instances: Vec::new(),
         }
     }
 
-    pub fn add_instance(&mut self, transform : Matrix4<f32>, color : Vector4<f32>) -> i32 {
+    /// Adds a new texture instance to the batch in the `PreLoad` state.
+    ///
+    /// # Arguments
+    /// - `transform`: The transformation matrix for the new instance.
+    /// - `color`: The RGBA color vector for the new instance.
+    /// - `uv_transform`: The UV transformation vector for the new instance.
+    ///
+    /// # Returns
+    /// - The number of instances in the batch after adding, or -1 if the batch is not in the `PreLoad` state.
+    pub fn add_instance(&mut self, transform : Matrix4<f32>, color : Vector4<f32>, uv_transform : Vector4<f32>) -> i32 {
         match self {
-            InstanceBatch::PreLoad { instances } => {
-                instances.push(RenderInstance::new(transform, color));
+            Texture2DBatch::PreLoad { instances } => {
+                instances.push(Texture2DInstance::new(transform, color, uv_transform));
                 return instances.len() as i32 + 1;
             }
             _ => {
@@ -68,16 +111,28 @@ impl InstanceBatch {
         }
     }
 
-    pub fn create_buffers(instances: &mut Vec<RenderInstance>) -> (Vec<f32>, Vec<f32>) {
+    /// Generates GPU-ready buffers for transformations, colors, and UV transformations.
+    ///
+    /// # Arguments
+    /// - `instances`: A mutable reference to the vector of `Texture2DInstance` objects.
+    ///
+    /// # Returns
+    /// - A tuple of three `Vec<f32>` buffers:
+    ///   - Transform buffer: Contains the transformation matrices.
+    ///   - Color buffer: Contains the RGBA color values.
+    ///   - UV transform buffer: Contains the UV transformation vectors.
+    pub fn create_buffers(instances: &mut Vec<Texture2DInstance>) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
         let mut transform_buffer = Vec::new();
         let mut color_buffer = Vec::new();
+        let mut uv_transform_buffer = Vec::new();
 
         for instance in instances {
             let matrix = instance.transform;
             transform_buffer.extend_from_slice(matrix.as_slice());
             color_buffer.extend_from_slice(instance.color.as_slice());
+            uv_transform_buffer.extend_from_slice(instance.uv_transform.as_slice());
         }
 
-        (transform_buffer, color_buffer)
+        (transform_buffer, color_buffer, uv_transform_buffer)
     }
 }

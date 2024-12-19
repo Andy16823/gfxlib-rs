@@ -13,6 +13,7 @@ pub mod render_device;
 pub mod render_target;
 pub mod shapes;
 pub mod viewport;
+pub mod font;
 
 
 /// Represents data required for rendering, such as vertex array, buffer objects, and index count.

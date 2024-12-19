@@ -166,3 +166,51 @@ impl PrebuildShaderProgram for Texture2DBatchShader {
     }
 
 }
+
+
+pub struct FontShader;
+impl PrebuildShaderProgram for FontShader {
+
+    fn build_shader_program() -> ShaderProgram {
+
+        let vertex_shader = Shader {
+            source: String::from("
+                #version 330 core
+                layout (location = 0) in vec4 vertex;
+                out vec2 TexCoords;
+
+                uniform mat4 p_mat;
+
+                void main()
+                {
+                    gl_Position = p_mat * vec4(vertex.xy, 0.0, 1.0);
+                    TexCoords = vertex.zw;
+                }  
+            "),
+        };
+
+        let fragment_shader = Shader {
+            source: String::from("
+                #version 330 core
+                in vec2 TexCoords;
+                out vec4 color;
+
+                uniform sampler2D textureSampler;
+                uniform vec4 vertexColor;
+
+                void main()
+                {    
+                    vec4 sampled = vec4(1.0, 1.0, 1.0, texture(textureSampler, TexCoords).r);
+                    color = vertexColor * sampled;
+                }  
+            ")
+        };
+
+        return ShaderProgram {
+            vertex_shader: vertex_shader,
+            fragment_shader: fragment_shader,
+            program_id: 0
+        }
+    }
+
+}

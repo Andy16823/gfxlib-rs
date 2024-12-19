@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 beryllium = "0.13.3"
+freetype-rs = { version = "*", features = ["bundled"] }
 gl = "0.14.0"
 glfw = "0.59.0"
 nalgebra = "0.33.2"

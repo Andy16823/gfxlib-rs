@@ -1,9 +1,10 @@
 use std::{collections::HashMap, ffi::CString};
+use freetype::{face::LoadFlag, Library};
 use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
-use super::{camera::{Camera, ICamera}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData, Texture2DBatch, Texture2DInstance};
+use super::{camera::{Camera, ICamera}, font::{Character, Font}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData, Texture2DBatch, Texture2DInstance};
 
 #[derive(Default)]
 pub struct RenderDevice {
@@ -232,6 +233,88 @@ impl RenderDevice {
                 eprintln!("Error: Invalid Texture2DBatch state. Expected 'Loaded' state. Ensure the Texture2DBatch is properly loaded before updating.");
             }
         }
+    }
+
+    pub fn load_font(&mut self, font_file : &str, font_height : u32) -> Font{
+        let mut font = Font::new();
+        let library = Library::init().expect("Failed to initialize FreeType library");
+        let face = library.new_face(font_file, 0).expect("Failed to load font");
+        face.set_pixel_sizes(0, font_height).expect("Failed to set pixel size");
+
+        unsafe {
+            gl::PixelStorei(gl::UNPACK_ALIGNMENT, 1);
+        }
+
+        for c in 0 .. 128 {
+            let character = c as u8 as char;
+            let index = face.get_char_index(c);
+            match index {
+                Some(index) => {
+                    if index != 0 {
+                        // println!("Loading cahr: {} code: {}", character, character as usize);
+                        face.load_glyph(index, LoadFlag::RENDER).expect("Failed to load glyphe");
+                        let glyph = face.glyph();       
+                        unsafe {
+                            let mut texture : GLuint = 0;
+                            gl::GenTextures(1, &mut texture);
+                            gl::BindTexture(gl::TEXTURE_2D, texture);
+                            gl::TexImage2D(
+                                gl::TEXTURE_2D,
+                                0,
+                                gl::RED as GLint,
+                                glyph.bitmap().width() as GLsizei,
+                                glyph.bitmap().rows() as GLsizei,
+                                0,
+                                gl::RED,
+                                gl::UNSIGNED_BYTE,
+                                glyph.bitmap().buffer().as_ptr() as *const GLvoid
+                            );
+                            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as GLint);
+                            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as GLint);
+                            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as GLint);
+                            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
+        
+                            let gfx_char = Character {
+                                texture_id: texture,
+                                size: Vector2::new(glyph.bitmap().width(), glyph.bitmap().rows()),
+                                bearing: Vector2::new(glyph.bitmap_left(), glyph.bitmap_top()),
+                                advance: glyph.advance().x
+                            };
+                            font.characters.insert(character, gfx_char);
+                        }
+                    }
+                }
+                None => {
+                    println!("Unable to load char {}", character);
+                }
+            }
+        };
+
+        unsafe {
+            let mut font_vao : GLuint = 0;
+            gl::GenVertexArrays(1, &mut font_vao);
+            gl::BindVertexArray(font_vao);
+            
+            let buffer_size = std::mem::size_of::<f32>() * 6 * 4;
+            let stride = 4 * std::mem::size_of::<f32>();
+            let mut font_vbo : GLuint = 0;
+            gl::GenBuffers(1, &mut font_vbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, font_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                buffer_size as isize,
+                std::ptr::null() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(0, 4, gl::FLOAT, gl::FALSE, stride as i32, std::ptr::null());
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+
+            font.vao = font_vao;
+            font.vbo = font_vbo;
+        }
+        return font;
     }
 
     pub fn compile_shader(&mut self, source : &str, shader_type : GLuint) -> u32{
@@ -621,6 +704,60 @@ impl RenderDevice {
         }
     }
 
+    pub fn draw_text2d(&mut self, position : Vector2<f32>, text : &str, scale : f32, color : Vector4<f32>, font : &mut Font) {
+        unsafe {
+            let mut x = position.x;
+            let y = position.y;
+
+            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+            gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
+            gl::BindVertexArray(font.vao);
+
+            for c in text.chars() {
+                let character = font.characters.get(&c);
+                match character {
+                    Some(character) => {
+                        gl::ActiveTexture(gl::TEXTURE0);
+                        gl::BindTexture(gl::TEXTURE_2D, character.texture_id);
+                        gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
+
+                        let xpos = x + character.bearing.x as f32 * scale;
+                        let ypos = y - (character.size.y as f32 - character.bearing.y as f32) * scale;
+                        let w = character.size.x as f32 * scale;
+                        let h = character.size.y as f32 * scale;
+                        
+                        let vertices: [[f32;4]; 6] = [
+                            [xpos, ypos + h, 0.0, 0.0],
+                            [xpos, ypos, 0.0, 1.0],
+                            [xpos + w, ypos, 1.0, 1.0],
+
+                            [xpos, ypos + h, 0.0, 0.0],
+                            [xpos + w, ypos, 1.0, 1.0],
+                            [xpos + w, ypos + h, 1.0, 0.0]
+                        ];
+
+                        gl::BindBuffer(gl::ARRAY_BUFFER, font.vbo);
+                        gl::BufferSubData(
+                            gl::ARRAY_BUFFER, 
+                            0 as isize, 
+                            std::mem::size_of_val(&vertices) as isize, 
+                            vertices.as_ptr() as *const _);
+                        gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        
+                        gl::DrawArrays(gl::TRIANGLES, 0, 6);
+
+                        x += ((character.advance as i32 >> 6) as f32) * scale;
+                    }
+                    None => {
+                        println!("Character '{}' not found in this font", c);
+                    }
+                }
+            }
+            gl::BindVertexArray(0);
+            gl::BindTexture(gl::TEXTURE_2D, 0);
+        }
+    }
+
     pub fn draw_render_target(&mut self, render_target : RenderTarget) {
         let shape = self.render_shapes.get("framebuffer_shape").copied();
         match shape {
@@ -685,6 +822,16 @@ impl RenderDevice {
             }
             _ => {
                 println!("Texture was not loaded!")
+            }
+        }
+    }
+
+    pub fn dispose_font(&mut self, font : &mut Font) {
+        unsafe {
+            gl::DeleteVertexArrays(1, &font.vao);
+            gl::DeleteBuffers(1, &font.vbo);
+            for (_key, value) in &font.characters {
+                gl::DeleteTextures(1, &value.texture_id);
             }
         }
     }

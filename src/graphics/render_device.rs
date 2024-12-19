@@ -17,8 +17,10 @@ pub struct RenderDevice {
 
 impl RenderDevice {
 
+    /// Initializes the render device with the provided window.
+    /// Sets up OpenGL context, enables depth testing and blending,
+    /// and initializes default shapes used for rendering.
     pub fn init(&mut self, window: &mut PWindow) {
-
         //initial opengl with the glfw window
         gl::load_with(|s| window.get_proc_address(s) as *const _);
         unsafe {
@@ -39,12 +41,14 @@ impl RenderDevice {
         self.render_shapes.insert(String::from("rect_shape"), rect_shape);
     }
 
+    /// Sets the clear color for the OpenGL context.
     pub fn clear_color(&mut self, color: Vector4<f32>) {
         unsafe {
             gl::ClearColor(color.x, color.y, color.z, color.w);
         }
     }
 
+    /// Clears the screen using the current clear color and clears the depth buffer.
     pub fn clear(&mut self) {
         unsafe {
             
@@ -52,18 +56,21 @@ impl RenderDevice {
         }
     }
 
+    /// Disables depth testing in OpenGL.
     pub fn disable_depth_test(&mut self) {
         unsafe {
             gl::Disable(gl::DEPTH_TEST);
         }
     }
 
+    /// Enables depth testing in OpenGL.
     pub fn enable_depth_test(&mut self) {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
         }
     }
 
+    /// Sets the viewport size for rendering.
     pub fn set_viewport(&mut self, viewport : Viewport) {
         unsafe {
             gl::Viewport(0, 0, viewport.size.x as i32, viewport.size.y as i32);
@@ -71,11 +78,23 @@ impl RenderDevice {
         self.viewport = viewport;
     }
 
+    /// Configures the camera's view and projection matrices.
     pub fn set_camera(&mut self, camera : &mut Camera) {
         self.view_matrix = camera.get_view_matrix();
         self.projection_matrix = camera.get_projection_matrix(self.viewport, 1.0);
     }
 
+    /// Configures the view matrix.
+    pub fn set_view_matrix(&mut self, matrix : Matrix4<f32>) {
+        self.view_matrix = matrix;
+    }
+
+    /// Configures the projection matrix.
+    pub fn set_projection_matrix(&mut self, matrix : Matrix4<f32>) {
+        self.projection_matrix = matrix;
+    }
+
+    /// Creates a render target (framebuffer) with the specified width and height.
     pub fn create_render_target(&mut self, width : u32, height : u32) -> RenderTarget {
         unsafe {
             let mut framebuffer_id : GLuint = 0;
@@ -116,6 +135,7 @@ impl RenderDevice {
         }
     }
 
+    /// Resizes an existing render target to the specified dimensions.
     pub fn resize_render_target(&mut self, render_target : &mut RenderTarget, width : u32, height : u32) {
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, render_target.texture_id);
@@ -130,6 +150,7 @@ impl RenderDevice {
         }
     }
 
+    /// Loads a texture from an ImageTexture object into OpenGL.
     pub fn load_texture(&mut self, image_texture: &mut ImageTexture) {
         match image_texture {
             ImageTexture::PreLoad { path: _, dimensions, data } => {
@@ -162,6 +183,7 @@ impl RenderDevice {
         }
     }
 
+    /// Loads a texture batch into GPU memory, creating necessary buffers and updating the batch state to `Loaded`.
     pub fn load_texture2d_batch(&mut self, instance_batch : &mut Texture2DBatch) {
         match instance_batch {
             Texture2DBatch::PreLoad { instances } => {
@@ -207,6 +229,7 @@ impl RenderDevice {
         }
     }
 
+    /// Updates a specific instance in a loaded `Texture2DBatch`, modifying its transformation, color, and UV data in GPU buffers.
     pub fn update_texture2d_batch_instance(&mut self, texture2d_batch : &mut Texture2DBatch, index : isize, instance : Texture2DInstance) {
         match texture2d_batch {
             Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
@@ -237,6 +260,7 @@ impl RenderDevice {
         }
     }
 
+    /// Loads a font into GPU memory using FreeType, generating character textures and related data for text rendering.
     pub fn load_font(&mut self, font_file : &str, font_height : u32) -> Font{
         let mut font = Font::new();
         let library = Library::init().expect("Failed to initialize FreeType library");
@@ -319,6 +343,8 @@ impl RenderDevice {
         return font;
     }
 
+    /// Compiles an OpenGL shader from the given source code.
+    /// Takes shader source and type (e.g., vertex or fragment) and compiles it into a shader ID for use.
     pub fn compile_shader(&mut self, source : &str, shader_type : GLuint) -> u32{
         unsafe {
             let shader_id = gl::CreateShader(shader_type);
@@ -331,6 +357,8 @@ impl RenderDevice {
         }
     }
 
+    /// Creates and links a shader program from vertex and fragment shaders.
+    /// Compiles vertex and fragment shaders, links them into an OpenGL program, and stores the program ID.
     pub fn create_shader_program(&mut self, shader_program : &mut ShaderProgram) {
         unsafe {
             let vertex_shader = self.compile_shader(&shader_program.vertex_shader.source, gl::VERTEX_SHADER);
@@ -359,6 +387,8 @@ impl RenderDevice {
         }
     }
 
+    /// Binds a shader program for use in rendering.
+    /// Sets the specified shader program as the current OpenGL program for drawing.
     pub fn bind_shader_program(&mut self, shader_program : &mut ShaderProgram) {
         unsafe {
             gl::UseProgram(shader_program.program_id);
@@ -366,6 +396,8 @@ impl RenderDevice {
         }
     }
 
+    /// Unbinds the currently bound shader program.
+    /// Deactivates the custom shader program, resetting OpenGL to use the default program.
     pub fn unbind_shader_program(&mut self) {
         unsafe {
             gl::UseProgram(0);
@@ -373,6 +405,9 @@ impl RenderDevice {
         }
     }
 
+    /// Retrieves the location of a uniform variable in a shader program.
+    /// Queries OpenGL for the uniform's location and returns it, or -1 if not found.
+    /// The location is used to set or get uniform values during rendering.
     pub fn get_uniform_location(&mut self, program_id : u32, name : &str) -> i32 {
         let name = CString::new(name).expect("CString::new failed");
         unsafe {
@@ -381,6 +416,10 @@ impl RenderDevice {
         }
     }
 
+    /// Binds the specified render target (framebuffer) for rendering.
+    /// This directs rendering operations to the given framebuffer instead of the default one.
+    /// ### Notes:
+    /// - After rendering, call `unbind_render_target` to return to the default framebuffer.
     pub fn bind_render_target(&mut self, render_target : RenderTarget) 
     {
         unsafe {
@@ -388,12 +427,23 @@ impl RenderDevice {
         }
     }
 
+    /// Unbinds the currently bound render target and reverts to the default framebuffer.
+    /// This ensures that further rendering will happen on the default framebuffer (usually the screen).
+    ///
+    /// ### Notes:
+    /// - Call this after rendering to a custom framebuffer to reset the rendering target.
     pub fn unbind_render_target(&mut self) {
         unsafe {
             gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
         }
     }
 
+    /// Initializes a shape's vertex data by creating and binding the necessary OpenGL buffers (VAO, VBO, IBO, TBO) 
+    /// for the shape (e.g., vertex buffer, UV buffer, index buffer). It works with any type implementing the `Shape` trait, 
+    /// providing a generic way to handle different shapes (triangles, squares, etc.).
+    ///
+    /// ### Returns:
+    /// - `RenderData`: A struct containing the VAO, VBO, IBO, TBO, and index count for rendering the shape.
     pub fn init_shape<T: Shape>(&mut self, shape : T) -> RenderData{
         unsafe {
             //create and bin vertex array object
@@ -469,6 +519,9 @@ impl RenderDevice {
         }
     }
 
+    /// Initializes the mesh by creating and binding the necessary OpenGL buffers (VBO, IBO, TBO) 
+    /// for vertex data, index data, and texture coordinates. These buffers are stored in the provided `mesh` object 
+    /// and bound to the OpenGL vertex array object (VAO) for rendering.
     pub fn init_mesh(&mut self, mesh : &mut Mesh) {
         unsafe {
             let mut vao: GLuint = 0;
@@ -536,6 +589,10 @@ impl RenderDevice {
         }
     }
 
+    /// Draws the mesh with the given transformation and material properties.
+    /// The function applies the transformation matrix (`transform`), binds the texture for the mesh, 
+    /// and uses the appropriate shaders to render the mesh. The material properties, including texture and color, 
+    /// are handled, and OpenGL's `gl::DrawElements` is used to draw the mesh.
     pub fn draw_mesh(&mut self, transform : &mut Transform3D, mesh : &mut Mesh) {
         match mesh.material.diffuse_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
@@ -561,11 +618,19 @@ impl RenderDevice {
         }
     }
 
+    /// Renders a framebuffer (render target) as a texture with the specified transformation and color tint.
+    /// The render target's texture is used to represent its content, and UV coordinates are generated based on its size.
+    /// This function is often used for rendering off-screen content (like post-processing effects) to the screen.
+    /// The texture is rendered with the provided transformation (position, rotation, scale) and optional color tint.
     pub fn draw_texture2drt<T : ITransform>(&mut self, transform : T, render_target: &mut RenderTarget, color: Vector4<f32>) {
         let uv_buffer = utils::generate_uv_coords(render_target.size.x, render_target.size.y, Vector2::new(0.0, 0.0), Vector2::new(render_target.size.x as f32, render_target.size.y as f32));
         self.draw_texture2di_internal(transform, render_target.texture_id, color, uv_buffer);
     }
 
+    /// Renders a 2D texture with the specified transformation and color tint.
+    /// The texture's UV coordinates are generated based on its dimensions, and the texture is rendered with a given transformation
+    /// (position, rotation, scale) and optional color tint. This function ensures the texture is loaded before rendering.
+    /// If the texture is not loaded, an error message will be logged.
     pub fn draw_texture2d<T: ITransform>(&mut self, transform : T, image_texture: &mut ImageTexture, color: Vector4<f32>) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions } => {
@@ -578,6 +643,11 @@ impl RenderDevice {
         }
     }
 
+    /// Renders a specific subregion of a 2D texture to the screen with the specified transformation and color tint.
+    /// The subregion is defined by the `point` (top-left corner) and `size` (width and height) parameters in texture space.
+    /// The texture is rendered with the provided transformation (position, rotation, scale) and color tint.
+    /// Useful for rendering parts of a texture, such as sprite sheets or icons.
+    /// If the texture is not loaded or an error occurs, a message will be logged.
     pub fn draw_sub_texture2d<T: ITransform>(&mut self, transform : T, point : Vector2<f32>, size : Vector2<f32>, image_texture: &mut ImageTexture, color: Vector4<f32>) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions } => {
@@ -590,11 +660,22 @@ impl RenderDevice {
         }
     }
 
+    /// Renders a 2D texture to the screen using the provided transformation and color tint.
+    /// The texture is rendered with the specified transformation, which includes position, rotation, and scaling.
+    /// The color parameter applies a tint to the texture, modifying its original colors.
+    /// Assumes the full texture is rendered, and the texture size is used to generate correct UV coordinates.
+    /// If the texture is not loaded or there are issues with the texture, it may fail to render and log an error.
     pub fn draw_texture2di<T: ITransform>(&mut self, transform : T, texture_size : Vector2<f32>, texture_id: u32, color: Vector4<f32>) {
         let uv_buffer = utils::generate_uv_coords(texture_size.x as u32, texture_size.y as u32, Vector2::new(0.0, 0.0), Vector2::new(texture_size.x, texture_size.y)); 
         self.draw_texture2di_internal(transform, texture_id, color, uv_buffer);
     }
 
+    /// Renders a 2D texture with a given transformation, color filter, and UV mapping.
+    /// This internal function handles the OpenGL setup to apply the transformation and color to a texture, 
+    /// and then renders it using the provided texture ID and UV coordinates. 
+    /// The transformation includes position, scale, and rotation, and the color is applied as a filter to the texture.
+    /// Assumes UV coordinates are provided in `uv_buffer`, and the corresponding OpenGL buffers are set up for rendering.
+    /// If the texture shape is missing, an error message is logged.
     fn draw_texture2di_internal<T: ITransform>(&mut self, transform : T, texture_id: u32, color: Vector4<f32>, uv_buffer : Vec<f32>) {
         let shape = self.render_shapes.get("texture_shape").copied();
         match shape {
@@ -632,7 +713,11 @@ impl RenderDevice {
         }
     }
 
-
+    /// Renders a batch of 2D textured instances with unique transformations, colors, and UV coordinates.
+    /// This function utilizes OpenGL instanced rendering for efficient rendering of multiple instances with a single draw call.
+    /// Each instance can have different transformations (position, scale, rotation), color, and UV mapping.
+    /// Requires a loaded texture and a properly initialized `Texture2DBatch` with buffers for model transformations, colors, and UVs.
+    /// Ideal for rendering large quantities of the same object with different properties (e.g., sprites, particles).
     pub fn draw_texture2d_batch(&mut self, image_texture: &mut ImageTexture, instance_batch : &mut Texture2DBatch) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
@@ -704,6 +789,11 @@ impl RenderDevice {
         }
     }
 
+    /// Renders a string of text at a given 2D position, applying optional scaling, color, and alignment.
+    /// The function uses OpenGL with a font texture atlas to draw each character individually, adjusting position based on alignment.
+    /// The text's size can be controlled by the scale parameter, and the color is applied via RGBA values.
+    /// If a character is missing in the font, a warning is logged.
+    /// Ideal for rendering UI elements or small text batches.
     pub fn draw_text2d(&mut self, position : Vector2<f32>, text : &str, scale : f32, color : Vector4<f32>, font : &mut Font, alignment : TextAlignment) {
         unsafe {
             let mut x = position.x;
@@ -759,6 +849,10 @@ impl RenderDevice {
         }
     }
 
+    /// Renders a filled rectangle at a specified position with a given color, applying transformations (position, rotation, scale).
+    /// Uses OpenGL to draw the rectangle with a `model-view-projection` matrix for position and scale adjustments.
+    /// The function assumes the "rect_shape" is preloaded as a VAO and uses `gl::DrawElements` for rendering.
+    /// Efficient for drawing background or UI elements with a single draw call.
     pub fn fill_rect<T: ITransform>(&mut self, transform : T, color : Vector4<f32>) {
         let shape = self.render_shapes.get("rect_shape").copied();
         match shape {
@@ -779,6 +873,11 @@ impl RenderDevice {
         }
     }
 
+    /// Renders a rectangle with a border at a given position, applying transformations (position, rotation, scale).
+    /// The border width and aspect ratio are customizable for rendering across different screen resolutions.
+    /// Assumes the rectangle shape (`rect_shape`) is preloaded as a VAO and uses `gl::DrawElements` for rendering.
+    /// The aspect ratio is calculated and passed to the shader for proper rendering adjustments.
+    /// Efficient for rendering rectangles with borders, useful for UI elements or graphical shapes.
     pub fn draw_rect<T: ITransform>(&mut self, transform : T, line_width : f32, color : Vector4<f32>) {
         let shape = self.render_shapes.get("rect_shape").copied();
         match shape {
@@ -802,6 +901,11 @@ impl RenderDevice {
         }
     }
 
+    /// Renders the texture from a `RenderTarget` as a fullscreen 2D quad.
+    /// The texture is bound from the `RenderTarget` and drawn using the "framebuffer_shape" in `render_shapes` as a quad.
+    /// Assumes the framebuffer shape is already loaded with the VAO for a fullscreen quad.
+    /// Uses a single `gl::DrawElements` call to render the texture efficiently.
+    /// Typically used for displaying textures from framebuffers to the screen.
     pub fn draw_render_target(&mut self, render_target : RenderTarget) {
         let shape = self.render_shapes.get("framebuffer_shape").copied();
         match shape {
@@ -823,6 +927,9 @@ impl RenderDevice {
         }
     }
 
+    /// Disposes of all render shapes in `self.render_shapes`.
+    /// This function will iterate over all the shapes in `self.render_shapes`
+    /// and call `dispose_render_data` on each one to properly clean up the resources.
     pub fn dispose(&mut self) {
         let render_shapes = std::mem::take(&mut self.render_shapes);
         for (_key, mut value) in render_shapes {
@@ -830,6 +937,9 @@ impl RenderDevice {
         }
     }
 
+    /// Disposes of the resources associated with a specific `RenderData` object.
+    /// This includes deleting OpenGL buffers (VBO, TBO, IBO, and VAO) if they are not zero.
+    /// The function ensures that all buffers associated with the render data are safely deleted.
     pub fn dispose_render_data(&mut self, render_data : &mut RenderData) {
         unsafe {
             if render_data.vbo != 0 {
@@ -854,6 +964,8 @@ impl RenderDevice {
         }
     }
 
+    /// Disposes of a loaded image texture by deleting the texture from OpenGL.
+    /// If the texture is not loaded, it prints a message.
     pub fn dispose_image_texture(&mut self, image_texture: &mut ImageTexture) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
@@ -868,6 +980,8 @@ impl RenderDevice {
         }
     }
 
+    /// Disposes of a font by deleting its VAO, VBO, and associated textures.
+    /// This ensures that all resources associated with the font are cleaned up.
     pub fn dispose_font(&mut self, font : &mut Font) {
         unsafe {
             gl::DeleteVertexArrays(1, &font.vao);
@@ -878,6 +992,8 @@ impl RenderDevice {
         }
     }
 
+    /// Disposes of a render target by deleting its texture, renderbuffer, and framebuffer.
+    /// This ensures that all resources associated with the render target are freed.
     pub fn dispose_render_target(&mut self, render_target : &mut RenderTarget) {
         unsafe {
 
@@ -898,6 +1014,8 @@ impl RenderDevice {
         }
     }
 
+    /// Disposes of a mesh by deleting its render data and optionally disposing of its diffuse texture.
+    /// This ensures that all resources associated with the mesh are cleaned up.
     pub fn dispose_mesh(&mut self, mesh : &mut Mesh, dispose_material : bool) {
         self.dispose_render_data(&mut mesh.render_data);
         if dispose_material == true {
@@ -905,6 +1023,8 @@ impl RenderDevice {
         }
     }
    
+    /// Disposes of a shader program by deleting its OpenGL program.
+    /// This ensures that the shader program is properly cleaned up from the GPU.
     pub fn dispose_shader_program(&mut self, shader_program : &mut ShaderProgram) {
         unsafe {
             gl::DeleteProgram(shader_program.program_id);
@@ -913,6 +1033,8 @@ impl RenderDevice {
         }
     }
 
+    /// Disposes of a texture2D batch by deleting the associated buffers (MBO, CBO, UVTO).
+    /// This ensures that the batch resources are cleaned up properly.
     pub fn dispose_texture2d_batch(&mut self, instance_batch : &mut Texture2DBatch) {
         match instance_batch {
             Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
@@ -929,6 +1051,8 @@ impl RenderDevice {
         }
     }
 
+    /// Retrieves the last OpenGL error code.
+    /// This can be useful for debugging OpenGL calls and checking for errors.
     pub fn get_error(&self) -> u32 {
         unsafe { gl::GetError() }
     }

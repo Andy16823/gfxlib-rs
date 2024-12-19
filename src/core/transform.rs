@@ -2,6 +2,7 @@ use nalgebra::{Matrix4, Rotation, Vector2, Vector3};
 
 pub trait ITransform: Clone {
     fn get_model_matrix(self) -> Matrix4<f32>;
+    fn get_aspect_ratio(self) -> f32;
 }
 
 #[derive(Clone, Copy)]
@@ -21,6 +22,10 @@ impl ITransform for Transform2D {
         let scale = Matrix4::new_nonuniform_scaling(&scale);
 
         return translation * rotation * scale;
+    }
+
+    fn get_aspect_ratio(self) -> f32 {
+        return self.scale.x / self.scale.y;
     }
 }
 
@@ -89,6 +94,10 @@ impl ITransform for Transform3D {
         let scale = Matrix4::new_nonuniform_scaling(&self.scale);
 
         return translation * rotation * scale;
+    }
+
+    fn get_aspect_ratio(self) -> f32 {
+        return self.scale.x / self.scale.y;
     }
 }
 

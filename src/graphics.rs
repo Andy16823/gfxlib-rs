@@ -15,6 +15,18 @@ pub mod shapes;
 pub mod viewport;
 pub mod font;
 
+/// Represents flags for the text alignment
+pub enum TextAlignment {
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+    MiddleLeft,
+    MiddleCenter,
+    MiddleRight,
+    TopLeft,
+    TopCenter,
+    TopRight
+}
 
 /// Represents data required for rendering, such as vertex array, buffer objects, and index count.
 #[derive(Default, Clone, Copy)]
@@ -141,3 +153,4 @@ impl Texture2DBatch {
         (transform_buffer, color_buffer, uv_transform_buffer)
     }
 }
+

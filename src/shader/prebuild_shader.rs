@@ -214,3 +214,108 @@ impl PrebuildShaderProgram for FontShader {
     }
 
 }
+
+pub struct SolidRectShader;
+impl PrebuildShaderProgram for SolidRectShader {
+
+    fn build_shader_program() -> ShaderProgram {
+
+        let vertex_shader = Shader {
+            source: String::from("
+                #version 410 core
+                layout(location = 0) in vec3 inPosition;
+
+                out vec4 vColor;
+
+                uniform mat4 p_mat;
+                uniform mat4 v_mat;
+                uniform mat4 m_mat;
+                uniform vec4 vertexColor;
+
+                void main() {
+                    mat4 mvp = p_mat * v_mat * m_mat;
+                    gl_Position = mvp * vec4(inPosition, 1.0);
+                    vColor = vertexColor;
+                }
+            "),
+        };
+
+        let fragment_shader = Shader {
+            source: String::from("
+                #version 330 core
+                in vec4 vColor;
+
+                out vec4 fragColor; 
+
+                void main() {
+                    fragColor = vColor;
+                } 
+            ")
+        };
+
+        return ShaderProgram {
+            vertex_shader: vertex_shader,
+            fragment_shader: fragment_shader,
+            program_id: 0
+        }
+    }
+}
+
+pub struct RectShader;
+impl PrebuildShaderProgram for RectShader {
+
+    fn build_shader_program() -> ShaderProgram {
+        
+        let vertex_shader = Shader {
+            source: String::from("
+                #version 410 core
+                layout(location = 0) in vec3 inPosition;
+
+                out vec3 position;
+
+                uniform mat4 p_mat;
+                uniform mat4 v_mat;
+                uniform mat4 m_mat;
+                
+                void main() {
+                    mat4 mvp = p_mat * v_mat * m_mat;
+                    gl_Position = mvp * vec4(inPosition, 1.0);
+                    position = inPosition;
+                }
+            "),
+        };
+
+        let fragment_shader = Shader {
+            source: String::from("
+                #version 410 core
+
+                out vec4 fragColor; 
+                in vec3 position;
+
+                uniform vec4 vertexColor;
+                uniform float aspect;
+                uniform float borderWidth;
+
+                void main() {
+                    float bw = (borderWidth / 100) * aspect;
+                    float maxX = 0.5 - bw / aspect;
+                    float minX = -0.5 + bw / aspect;
+                    float maxY = 0.5 - bw;
+                    float minY = -0.5 + bw;
+
+                   if (position.x < maxX && position.x > minX && position.y < maxY && position.y > minY) {
+                        discard;
+                   } else {
+                        gl_FragColor = vertexColor;
+                   }  
+                }
+            ")
+        };
+
+        return ShaderProgram {
+            vertex_shader: vertex_shader,
+            fragment_shader: fragment_shader,
+            program_id: 0
+        }
+    }
+}

@@ -75,3 +75,33 @@ impl Shape for TextureShape {
     }    
     
 }
+
+pub struct RectShape;
+impl Shape for RectShape {
+
+    //returns the vertex buffer data
+    fn get_vertex_buffer(&self) -> Vec<f32> {
+        let buffer: Vec<f32> = vec![
+            -0.5, -0.5, 0.0,
+            -0.5, 0.5, 0.0,
+            0.5, 0.5, 0.0,
+            0.5, -0.5, 0.0
+        ];
+        return buffer;
+    }
+
+    //returns the uv buffer
+    fn get_uv_buffer(&self) -> Vec<f32> {
+        return Vec::new();
+    }
+
+    //returns the index buffer
+    fn get_index_buffer(&self) -> Vec<u32> {
+        let buffer: Vec<u32> = vec![
+            0, 1, 3,
+            3, 1, 2
+        ];
+        return  buffer;
+    }    
+    
+}

@@ -4,7 +4,7 @@ use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
-use super::{camera::{Camera, ICamera}, font::{Character, Font}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, Shape, TextureShape}, viewport::Viewport, RenderData, Texture2DBatch, Texture2DInstance};
+use super::{camera::{Camera, ICamera}, font::{Character, Font}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, RectShape, Shape, TextureShape}, viewport::Viewport, RenderData, TextAlignment, Texture2DBatch, Texture2DInstance};
 
 #[derive(Default)]
 pub struct RenderDevice {
@@ -35,6 +35,8 @@ impl RenderDevice {
         self.render_shapes.insert(String::from("texture_shape"), texture_shape);
         let texture_batch_shape = self.init_shape(TextureShape);
         self.render_shapes.insert(String::from("texture_batch_shape"), texture_batch_shape);
+        let rect_shape = self.init_shape(RectShape);
+        self.render_shapes.insert(String::from("rect_shape"), rect_shape);
     }
 
     pub fn clear_color(&mut self, color: Vector4<f32>) {
@@ -597,7 +599,6 @@ impl RenderDevice {
         let shape = self.render_shapes.get("texture_shape").copied();
         match shape {
             Some(shape) => {
-                self.disable_depth_test();
                 unsafe {
                     //change buffer data
                     gl::BindBuffer(gl::ARRAY_BUFFER, shape.tbo);
@@ -624,7 +625,6 @@ impl RenderDevice {
                     gl::BindVertexArray(0);
                     gl::Disable(gl::TEXTURE_2D);
                 }
-                self.enable_depth_test();
             }
             None => {
                 eprintln!("Texture shape not found!");
@@ -704,10 +704,11 @@ impl RenderDevice {
         }
     }
 
-    pub fn draw_text2d(&mut self, position : Vector2<f32>, text : &str, scale : f32, color : Vector4<f32>, font : &mut Font) {
+    pub fn draw_text2d(&mut self, position : Vector2<f32>, text : &str, scale : f32, color : Vector4<f32>, font : &mut Font, alignment : TextAlignment) {
         unsafe {
             let mut x = position.x;
             let y = position.y;
+            let offset = font.get_offset(text, scale, alignment);
 
             gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
             gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
@@ -721,8 +722,8 @@ impl RenderDevice {
                         gl::BindTexture(gl::TEXTURE_2D, character.texture_id);
                         gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
 
-                        let xpos = x + character.bearing.x as f32 * scale;
-                        let ypos = y - (character.size.y as f32 - character.bearing.y as f32) * scale;
+                        let xpos = (x + character.bearing.x as f32 * scale) + offset.x;
+                        let ypos = (y - (character.size.y as f32 - character.bearing.y as f32) * scale) + offset.y;
                         let w = character.size.x as f32 * scale;
                         let h = character.size.y as f32 * scale;
                         
@@ -758,11 +759,53 @@ impl RenderDevice {
         }
     }
 
+    pub fn fill_rect<T: ITransform>(&mut self, transform : T, color : Vector4<f32>) {
+        let shape = self.render_shapes.get("rect_shape").copied();
+        match shape {
+            Some(shape) => {
+                unsafe {
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+                    gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
+                    gl::BindVertexArray(shape.vao);
+                    gl::DrawElements(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
+                    gl::BindVertexArray(0);
+                }
+            }
+            None => {
+                eprintln!("Rect shape not found!");
+            }
+        }
+    }
+
+    pub fn draw_rect<T: ITransform>(&mut self, transform : T, line_width : f32, color : Vector4<f32>) {
+        let shape = self.render_shapes.get("rect_shape").copied();
+        match shape {
+            Some(shape) => {
+                let aspect = transform.clone().get_aspect_ratio();                
+                unsafe {
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+                    gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
+                    gl::Uniform1f(self.get_uniform_location(self.shader_program, "borderWidth"), line_width);
+                    gl::Uniform1f(self.get_uniform_location(self.shader_program, "aspect"), aspect);
+                    gl::BindVertexArray(shape.vao);
+                    gl::DrawElements(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
+                    gl::BindVertexArray(0);
+                }
+            }
+            None => {
+                eprintln!("Rect shape not found!");
+            }
+        }
+    }
+
     pub fn draw_render_target(&mut self, render_target : RenderTarget) {
         let shape = self.render_shapes.get("framebuffer_shape").copied();
         match shape {
            Some(shape) => {
-                self.disable_depth_test();
                 unsafe {
                     gl::Enable(gl::TEXTURE_2D);
                     gl::ActiveTexture(gl::TEXTURE0);
@@ -773,7 +816,6 @@ impl RenderDevice {
                     gl::BindVertexArray(0);
                     gl::Disable(gl::TEXTURE_2D);
                 }
-                self.enable_depth_test();
            }
            None => {
                 eprintln!("Framebuffer shape not found!");

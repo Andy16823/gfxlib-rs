@@ -2,7 +2,7 @@ use std::ffi::CString;
 
 use nalgebra::{Vector2, Vector4};
 
-use crate::image_texture::ImageTexture;
+use crate::{image_texture::ImageTexture, math::Rect};
 
 /// Loads the content of a file into a string.
 /// 
@@ -73,20 +73,19 @@ pub fn generate_uv_coords(image_width : u32, image_height : u32, point : Vector2
     return buffer;
 }
 
-/// Retrieves a subimage's position and size from an image texture, based on grid division.
-/// 
-/// # Arguments
-/// - `image_texture`: A mutable reference to an `ImageTexture` object.
-/// - `columns`: The number of columns in the grid.
-/// - `rows`: The number of rows in the grid.
-/// - `column_index`: The column index of the desired subimage (starting at 0).
-/// - `row_index`: The row index of the desired subimage (starting at 0).
-/// 
+/// Retrieves a subimage from the given `ImageTexture`, dividing it into a grid of `columns` x `rows`.
+///
+/// # Parameters
+/// - `image_texture`: A mutable reference to the `ImageTexture`.
+/// - `columns`: Number of columns in the grid.
+/// - `rows`: Number of rows in the grid.
+/// - `column_index`: The column index of the desired subimage (0-based).
+/// - `row_index`: The row index of the desired subimage (0-based).
+///
 /// # Returns
-/// - A tuple containing:
-///   - `Vector2<f32>`: The position of the subimage's bottom-left corner.
-///   - `Vector2<f32>`: The dimensions (width, height) of the subimage.
-pub fn get_subimage(image_texture : &mut ImageTexture, columns : u32, rows : u32, column_index : u32, row_index : u32) -> (Vector2<f32>, Vector2<f32>) {
+/// A `Rect<f32>` representing the position (`x`, `y`) and size (`width`, `height`) of the subimage. 
+/// Returns a default `Rect` for unsupported texture types.
+pub fn get_subimage(image_texture : &mut ImageTexture, columns : u32, rows : u32, column_index : u32, row_index : u32) -> Rect<f32> {
     match image_texture {
         ImageTexture::Loaded { id: _, dimensions } => {
             let cell_width = dimensions.x as f32 / columns as f32;
@@ -94,7 +93,7 @@ pub fn get_subimage(image_texture : &mut ImageTexture, columns : u32, rows : u32
             let pos_x = column_index as f32 * cell_width;
             let pos_y = row_index as f32 * cell_height;
 
-            return (Vector2::new(pos_x, pos_y), Vector2::new(cell_width, cell_height));
+            return Rect {x: pos_x, y: pos_y, widht: cell_width, height: cell_height};
         }
         ImageTexture::PreLoad { path: _, dimensions, data : _ } => {
             let cell_width = dimensions.x as f32 / columns as f32;
@@ -102,10 +101,10 @@ pub fn get_subimage(image_texture : &mut ImageTexture, columns : u32, rows : u32
             let pos_x = column_index as f32 * cell_width;
             let pos_y = row_index as f32 * cell_height;
 
-            return (Vector2::new(pos_x, pos_y), Vector2::new(cell_width, cell_height));
+            return Rect {x: pos_x, y: pos_y, widht: cell_width, height: cell_height};
         }
         _ => {
-            return (Vector2::default(), Vector2::default())
+            return Rect::default();
         }
     }
 }

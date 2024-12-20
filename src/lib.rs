@@ -1,12 +1,13 @@
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
+pub mod math;
 use graphics::*;
-pub use nalgebra::*;
 pub mod graphics;
 pub mod core;
 pub mod shader;
 pub mod utils;
+
 
 #[cfg(test)]
 mod tests {

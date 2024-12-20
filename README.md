@@ -16,9 +16,7 @@ GFX-Lib offers the following modules:
 ### Example
 Here’s a simple example showing how to create a window, load textures, and handle basic user input:
 
-<details>
-  <summary>Show example</summary>
-    ```RUST
+```RUST
     use std::time::Instant;
     use gfx::core::transform::Transform2D;
     use gfx::graphics::camera::Camera;
@@ -151,7 +149,6 @@ Here’s a simple example showing how to create a window, load textures, and han
         println!("Finished with error {}", window.render_device.get_error());
     }
     ```
-</details>
 
 *This example creates a simple 2D game window, loads a sprite sheet, handles user input, and renders animations and static images to the screen.*
 

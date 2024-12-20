@@ -1,7 +1,7 @@
 # gfxlib-rs
 GFX-Lib is a lightweight library designed to simplify the creation of 2D and 3D games using OpenGL. Unlike a full-fledged game engine, GFX-Lib focuses on providing a set of functions and modules that allow developers to easily create graphics applications or games while still maintaining the freedom to implement their own abstractions. This makes GFX-Lib an ideal foundation for building custom game engines. It is comparable to other frameworks like Raylib, MonoGame, or LibGDX.
 
-### Features
+## Features
 GFX-Lib offers the following modules:
 
 - **Graphics**: Functions for rendering 2D graphics, including textures, shapes, and shader management.
@@ -13,7 +13,7 @@ GFX-Lib offers the following modules:
 
 *Note: 3D rendering is currently under development and will be available in future versions.*
 
-### Example
+## Example
 Here’s a simple example showing how to create a window, load textures, and handle basic user input:
 
 ```RUST
@@ -209,7 +209,7 @@ fn main() {
 
 *This example creates a simple 2D game window, loads a sprite sheet, handles user input, and renders animations and static images to the screen.*
 
-### Dependencies
+## Dependencies
 The project uses the following dependencies:
 - [beryllium](https://crates.io/crates/beryllium) | License: Apache-2.0
 - [freetype-rs](https://crates.io/crates/freetype-rs) | License: MIT
@@ -219,7 +219,7 @@ The project uses the following dependencies:
 - [stb_image](https://crates.io/crates/stb_image) | License: MIT
 - [uuid](https://crates.io/crates/uuid) | License: MIT
 
-### Installation
+## Installation
 To use GFX-Lib in your project, add it as a dependency in your `Cargo.toml`:
 
 ```toml
@@ -227,5 +227,5 @@ To use GFX-Lib in your project, add it as a dependency in your `Cargo.toml`:
 gfx = { git = "https://github.com/Andy16823/gfxlib-rs" }
 ```
 
-### Contributing
+## Contributing
 Feel free to open issues or submit pull requests. Contributions are always welcome!

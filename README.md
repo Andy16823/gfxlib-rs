@@ -153,13 +153,13 @@ fn main() {
 
 ### Dependencies
 The project uses the following dependencies:
-- beryllium: https://crates.io/crates/beryllium | License: Apache-2.0
-- freetype-rs: Version * (with bundled feature) | License: MIT
-- gl: Version 0.14.0 | License: Apache-2.0
-- glfw: Version 0.59.0 | License: Zlib
-- nalgebra: Version 0.33.2 | License: Apache-2.0
-- stb_image: Version 0.3.0 | License: MIT
-- uuid: Version 1.11.0 (with serde and v4 features) | License: MIT
+- [beryllium](https://crates.io/crates/beryllium) | License: Apache-2.0
+- [freetype-rs](https://crates.io/crates/freetype-rs) | License: MIT
+- [gl](https://crates.io/crates/gl) | License: Apache-2.0
+- [glfw](https://crates.io/crates/glfw) | License: Zlib
+- [nalgebra](https://crates.io/crates/nalgebra) | License: Apache-2.0
+- [stb_image](https://crates.io/crates/stb_image) | License: MIT
+- [uuid](https://crates.io/crates/uuid) | License: MIT
 
 ### Installation
 To use GFX-Lib in your project, add it as a dependency in your `Cargo.toml`:

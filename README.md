@@ -153,7 +153,7 @@ fn main() {
 
 ### Dependencies
 The project uses the following dependencies:
-- beryllium: Version 0.13.3 | License: Apache-2.0
+- beryllium: https://crates.io/crates/beryllium | License: Apache-2.0
 - freetype-rs: Version * (with bundled feature) | License: MIT
 - gl: Version 0.14.0 | License: Apache-2.0
 - glfw: Version 0.59.0 | License: Zlib

@@ -16,143 +16,139 @@ GFX-Lib offers the following modules:
 ### Example
 Here’s a simple example showing how to create a window, load textures, and handle basic user input:
 
-<details>
-  <summary>Show example</summary>
-    ```RUST
-    use std::time::Instant;
-    use gfx::core::transform::Transform2D;
-    use gfx::graphics::camera::Camera;
-    use gfx::graphics::game_window::Key;
-    use gfx::graphics::game_window::Window;
-    use gfx::graphics::image_texture::ImageTexture;
-    use gfx::graphics::TextAlignment;
-    use gfx::shader::prebuild_shader::FontShader;
-    use gfx::shader::prebuild_shader::Texture2DShader;
-    use gfx::math::Vector2;
-    use gfx::math::Vector3;
+```RUST
+use std::time::Instant;
+use gfx::core::transform::Transform2D;
+use gfx::graphics::camera::Camera;
+use gfx::graphics::game_window::Key;
+use gfx::graphics::game_window::Window;
+use gfx::graphics::image_texture::ImageTexture;
+use gfx::graphics::TextAlignment;
+use gfx::shader::prebuild_shader::FontShader;
+use gfx::shader::prebuild_shader::Texture2DShader;
+use gfx::math::Vector2;
+use gfx::math::Vector3;
 
-    fn main() {
-        // Create the main game window with dimensions 800x600 and the title "My Game".
-        let mut window = Window::new(800, 600, "My Game", true);
+fn main() {
+    // Create the main game window with dimensions 800x600 and the title "My Game".
+    let mut window = Window::new(800, 600, "My Game", true);
 
-        // Disable depth testing for this application.
-        window.render_device.disable_depth_test();
+    // Disable depth testing for this application.
+    window.render_device.disable_depth_test();
 
-        // Get the executable's path for resource loading.
-        let binding = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
-        let exe_path = binding.to_str().unwrap();
-        println!("{}", exe_path);
+    // Get the executable's path for resource loading.
+    let binding = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
+    let exe_path = binding.to_str().unwrap();
+    println!("{}", exe_path);
 
-        // Create a camera for rendering, with position and size set.
-        let mut camera = Camera {
-            size: Vector3::new(800.0, 600.0, 0.0),
-            position: Vector3::new(0.0,0.0, 0.0),
-            near: 1.0,
-            far: -1.0
-        };
+    // Create a camera for rendering, with position and size set.
+    let mut camera = Camera {
+        size: Vector3::new(800.0, 600.0, 0.0),
+        position: Vector3::new(0.0,0.0, 0.0),
+        near: 1.0,
+        far: -1.0
+    };
 
-        // Load a font to be used for rendering text.
-        let mut font = window.render_device.load_font("C:/Users/andy1/Downloads/Gamer.ttf", 24);
+    // Load a font to be used for rendering text.
+    let mut font = window.render_device.load_font("C:/Users/andy1/Downloads/Gamer.ttf", 24);
 
-        // Create render targets for different types of rendering operations.
-        let mut animated_sprite_rt = window.render_device.create_render_target(800, 600);
-        let mut sprite_rt = window.render_device.create_render_target(800, 600);
-        let mut text_rt = window.render_device.create_render_target(800, 600);
-        let mut rect_rt = window.render_device.create_render_target(800, 600);
+    // Create render targets for different types of rendering operations.
+    let mut animated_sprite_rt = window.render_device.create_render_target(800, 600);
+    let mut sprite_rt = window.render_device.create_render_target(800, 600);
+    let mut text_rt = window.render_device.create_render_target(800, 600);
+    let mut rect_rt = window.render_device.create_render_target(800, 600);
 
-        //Create a texture2d_shader for the texture rendering
-        let mut texture2d_shader = Texture2DShader::build_shader_program();
-        window.render_device.create_shader_program(&mut texture2d_shader);
+    //Create a texture2d_shader for the texture rendering
+    let mut texture2d_shader = Texture2DShader::build_shader_program();
+    window.render_device.create_shader_program(&mut texture2d_shader);
 
-        // Initialize various shader programs for rendering.
-        let mut screen_shader = ScreenShader::build_shader_program();
-        window.render_device.create_shader_program(&mut screen_shader);
+    // Initialize various shader programs for rendering.
+    let mut screen_shader = ScreenShader::build_shader_program();
+    window.render_device.create_shader_program(&mut screen_shader);
 
-        let mut font_shader = FontShader::build_shader_program();
-        window.render_device.create_shader_program(&mut font_shader);
+    let mut font_shader = FontShader::build_shader_program();
+    window.render_device.create_shader_program(&mut font_shader);
 
-        // Load image textures for rendering sprites.
-        let mut image = ImageTexture::load_from_file("C:/Users/andy1/Downloads/MainGuySpriteSheet.png");
-        window.render_device.load_texture(&mut image);
+    // Load image textures for rendering sprites.
+    let mut image = ImageTexture::load_from_file("C:/Users/andy1/Downloads/MainGuySpriteSheet.png");
+    window.render_device.load_texture(&mut image);
 
-        // Setup animation data for sprite frames.
-        let mut last_frame = Instant::now();
-        let mut current_frame_index = 0;
-        let animation_frames = vec![
-            utils::get_subimage(&mut image, 3, 4, 0, 0),
-            utils::get_subimage(&mut image, 3, 4, 1, 0),
-            utils::get_subimage(&mut image, 3, 4, 2, 0),
-        ];
-        let mut current_frame = animation_frames[0];
+    // Setup animation data for sprite frames.
+    let mut last_frame = Instant::now();
+    let mut current_frame_index = 0;
+    let animation_frames = vec![
+        utils::get_subimage(&mut image, 3, 4, 0, 0),
+        utils::get_subimage(&mut image, 3, 4, 1, 0),
+        utils::get_subimage(&mut image, 3, 4, 2, 0),
+    ];
+    let mut current_frame = animation_frames[0];
 
-        // Initialize transforms for rendering objects.
-        let mut player_transform = Transform2D::new(Vector2::new(0.0, 0.0), 0.0, Vector2::new(32.0, 32.0));
+    // Initialize transforms for rendering objects.
+    let mut player_transform = Transform2D::new(Vector2::new(0.0, 0.0), 0.0, Vector2::new(32.0, 32.0));
 
-        // The main game loop runs until the window is closed.
-        while !window.should_close() {
-            // Process user input events.
-            window.poll_events();
+    // The main game loop runs until the window is closed.
+    while !window.should_close() {
+        // Process user input events.
+        window.poll_events();
 
-            // Update the animation frame based on time elapsed.
-            if last_frame.elapsed().as_millis() > 100 {
-                current_frame_index += 1;
-                if current_frame_index == animation_frames.len() -1 {
-                    current_frame_index = 0;
-                }
-                current_frame = animation_frames[current_frame_index];
-                last_frame = Instant::now();
+        // Update the animation frame based on time elapsed.
+        if last_frame.elapsed().as_millis() > 100 {
+            current_frame_index += 1;
+            if current_frame_index == animation_frames.len() -1 {
+                current_frame_index = 0;
             }
-
-            // Handle keyboard input for player movement or exiting the game.
-            if window.key_down(Key::Left) || window.key_down(Key::A) {
-                player_transform.translate_xy(-5.0, 0.0);
-            }
-            else if window.key_down(Key::Right) || window.key_down(Key::D) { 
-                player_transform.translate_xy(5.0, 0.0);
-            }
-            else if window.key_down(Key::Escape) {
-                window.close_window();
-            }  
-
-            // Set the viewport and camera for rendering.
-            window.render_device.set_viewport(window.get_viewport());
-            window.render_device.set_camera(&mut camera);
-
-            // Render the animated sprite to its render target.
-            window.render_device.resize_render_target(&mut animated_sprite_rt, window.get_viewport().size.x, window.get_viewport().size.y);
-            window.render_device.bind_render_target(animated_sprite_rt);
-            window.render_device.clear_color(Vector4::new(0.0, 0.0, 0.0, 0.0));
-            window.render_device.clear();
-            window.render_device.bind_shader_program(&mut texture2d_shader); 
-            window.render_device.draw_sub_texture2d(player_transform.clone(), Vector2::new(current_frame.x, current_frame.y), Vector2::new(current_frame.width, current_frame.height), &mut image, Vector4::new(1.0, 1.0, 1.0, 1.0)); // Draw the texture as a subtexture
-            window.render_device.unbind_shader_program();
-            window.render_device.unbind_render_target();
-
-            // Combine the render targets onto the screen in a specific order.
-            window.render_device.clear_color(Vector4::new(0.07, 0.0, 0.05, 1.0));
-            window.render_device.clear();
-            window.render_device.bind_shader_program(&mut screen_shader);
-            window.render_device.draw_render_target(sprite_rt);
-            window.render_device.draw_render_target(animated_sprite_rt);
-            window.render_device.unbind_shader_program();
-
-            // Swap the buffers and display the rendered result
-            window.swap_buffers();
+            current_frame = animation_frames[current_frame_index];
+            last_frame = Instant::now();
         }
 
-        // Cleanup the shaders, images, and render targets
-        window.render_device.dispose_shader_program(&mut texture2d_shader);
-        window.render_device.dispose_shader_program(&mut screen_shader);
-        window.render_device.dispose_render_target(&mut sprite_rt);
-        window.render_device.dispose_render_target(&mut animated_sprite_rt);
-        window.render_device.dispose_image_texture(&mut image);
-        window.render_device.dispose_font(&mut font);
-        window.render_device.dispose();
-        println!("Finished with error {}", window.render_device.get_error());
-    }
-    ```
-</details>
+        // Handle keyboard input for player movement or exiting the game.
+        if window.key_down(Key::Left) || window.key_down(Key::A) {
+            player_transform.translate_xy(-5.0, 0.0);
+        }
+        else if window.key_down(Key::Right) || window.key_down(Key::D) { 
+            player_transform.translate_xy(5.0, 0.0);
+        }
+        else if window.key_down(Key::Escape) {
+            window.close_window();
+        }  
 
+        // Set the viewport and camera for rendering.
+        window.render_device.set_viewport(window.get_viewport());
+        window.render_device.set_camera(&mut camera);
+
+        // Render the animated sprite to its render target.
+        window.render_device.resize_render_target(&mut animated_sprite_rt, window.get_viewport().size.x, window.get_viewport().size.y);
+        window.render_device.bind_render_target(animated_sprite_rt);
+        window.render_device.clear_color(Vector4::new(0.0, 0.0, 0.0, 0.0));
+        window.render_device.clear();
+        window.render_device.bind_shader_program(&mut texture2d_shader); 
+        window.render_device.draw_sub_texture2d(player_transform.clone(), Vector2::new(current_frame.x, current_frame.y), Vector2::new(current_frame.width, current_frame.height), &mut image, Vector4::new(1.0, 1.0, 1.0, 1.0)); // Draw the texture as a subtexture
+        window.render_device.unbind_shader_program();
+        window.render_device.unbind_render_target();
+
+        // Combine the render targets onto the screen in a specific order.
+        window.render_device.clear_color(Vector4::new(0.07, 0.0, 0.05, 1.0));
+        window.render_device.clear();
+        window.render_device.bind_shader_program(&mut screen_shader);
+        window.render_device.draw_render_target(sprite_rt);
+        window.render_device.draw_render_target(animated_sprite_rt);
+        window.render_device.unbind_shader_program();
+
+        // Swap the buffers and display the rendered result
+        window.swap_buffers();
+    }
+
+    // Cleanup the shaders, images, and render targets
+    window.render_device.dispose_shader_program(&mut texture2d_shader);
+    window.render_device.dispose_shader_program(&mut screen_shader);
+    window.render_device.dispose_render_target(&mut sprite_rt);
+    window.render_device.dispose_render_target(&mut animated_sprite_rt);
+    window.render_device.dispose_image_texture(&mut image);
+    window.render_device.dispose_font(&mut font);
+    window.render_device.dispose();
+    println!("Finished with error {}", window.render_device.get_error());
+}
+```
 *This example creates a simple 2D game window, loads a sprite sheet, handles user input, and renders animations and static images to the screen.*
 
 ### Dependencies

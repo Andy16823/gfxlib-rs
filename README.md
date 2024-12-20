@@ -170,7 +170,7 @@ To use GFX-Lib in your project, add it as a dependency in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gfxlib = { git = "https://github.com/Andy16823/gfxlib-rs" }
+gfx = { git = "https://github.com/Andy16823/gfxlib-rs" }
 ```
 
 ### Contributing

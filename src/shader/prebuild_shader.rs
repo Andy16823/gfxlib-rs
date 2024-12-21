@@ -47,10 +47,9 @@ impl PrebuildShaderProgram for Texture2DShader  {
             ")
         };
 
-        return ShaderProgram {
+        return ShaderProgram::PreBuild {
             vertex_shader: vertex_shader,
-            fragment_shader: fragment_shader,
-            program_id: 0
+            fragment_shader: fragment_shader
         }
     }
 }
@@ -95,10 +94,9 @@ impl PrebuildShaderProgram for ScreenShader {
             ")
         };
 
-        return ShaderProgram {
+        return ShaderProgram::PreBuild {
             vertex_shader: vertex_shader,
-            fragment_shader: fragment_shader,
-            program_id: 0
+            fragment_shader: fragment_shader
         }
     }
 
@@ -158,10 +156,9 @@ impl PrebuildShaderProgram for Texture2DBatchShader {
             ")
         };
 
-        return ShaderProgram {
+        return ShaderProgram::PreBuild {
             vertex_shader: vertex_shader,
-            fragment_shader: fragment_shader,
-            program_id: 0
+            fragment_shader: fragment_shader
         }
     }
 
@@ -206,10 +203,9 @@ impl PrebuildShaderProgram for FontShader {
             ")
         };
 
-        return ShaderProgram {
+        return ShaderProgram::PreBuild {
             vertex_shader: vertex_shader,
-            fragment_shader: fragment_shader,
-            program_id: 0
+            fragment_shader: fragment_shader
         }
     }
 
@@ -253,10 +249,9 @@ impl PrebuildShaderProgram for SolidRectShader {
             ")
         };
 
-        return ShaderProgram {
+        return ShaderProgram::PreBuild {
             vertex_shader: vertex_shader,
-            fragment_shader: fragment_shader,
-            program_id: 0
+            fragment_shader: fragment_shader
         }
     }
 }
@@ -312,10 +307,9 @@ impl PrebuildShaderProgram for RectShader {
             ")
         };
 
-        return ShaderProgram {
+        return ShaderProgram::PreBuild {
             vertex_shader: vertex_shader,
-            fragment_shader: fragment_shader,
-            program_id: 0
+            fragment_shader: fragment_shader
         }
     }
 }

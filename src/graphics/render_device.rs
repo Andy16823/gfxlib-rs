@@ -4,7 +4,7 @@ use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
-use super::{camera::{Camera, ICamera}, font::{Character, Font}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, RectShape, Shape, TextureShape}, viewport::Viewport, RenderData, TextAlignment, Texture2DBatch, Texture2DInstance};
+use super::{camera::ICamera, font::{Character, Font}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, RectShape, Shape, TextureShape}, viewport::Viewport, RenderData, TextAlignment, Texture2DBatch, Texture2DInstance};
 
 #[derive(Default)]
 pub struct RenderDevice {
@@ -79,7 +79,7 @@ impl RenderDevice {
     }
 
     /// Configures the camera's view and projection matrices.
-    pub fn set_camera(&mut self, camera : &mut Camera) {
+    pub fn set_camera<T: ICamera>(&mut self, camera : &mut T) {
         self.view_matrix = camera.get_view_matrix();
         self.projection_matrix = camera.get_projection_matrix(self.viewport, 1.0);
     }
@@ -359,30 +359,41 @@ impl RenderDevice {
 
     /// Creates and links a shader program from vertex and fragment shaders.
     /// Compiles vertex and fragment shaders, links them into an OpenGL program, and stores the program ID.
-    pub fn create_shader_program(&mut self, shader_program : &mut ShaderProgram) {
-        unsafe {
-            let vertex_shader = self.compile_shader(&shader_program.vertex_shader.source, gl::VERTEX_SHADER);
-            let fragment_shader = self.compile_shader(&shader_program.fragment_shader.source, gl::FRAGMENT_SHADER);
+    pub fn build_shader_program(&mut self, shader_program : &mut ShaderProgram) {
+        match shader_program {
+            ShaderProgram::PreBuild { fragment_shader, vertex_shader } => {
+                unsafe {
+                    let vertex_shader = self.compile_shader(&vertex_shader.source, gl::VERTEX_SHADER);
+                    let fragment_shader = self.compile_shader(&fragment_shader.source, gl::FRAGMENT_SHADER);
+        
+                    let program_id = gl::CreateProgram();
+                    gl::AttachShader(program_id, vertex_shader);
+                    gl::AttachShader(program_id, fragment_shader);
+                    gl::LinkProgram(program_id);
+                    gl::DeleteShader(vertex_shader);
+                    gl::DeleteShader(fragment_shader);
+                    
+                    let mut success = 1;
+                    let mut log = vec![0; 512];
+        
+                    gl::GetProgramiv(program_id, gl::LINK_STATUS, &mut success);
+                    if success == 0 {
+                        gl::GetProgramInfoLog(program_id, 512, std::ptr::null_mut(), log.as_mut_ptr() as *mut i8);
+                        println!("Shader Program Linking Failed: {}", String::from_utf8_lossy(&log)); 
+                    }
+                    else 
+                    {
+                        println!("Shader Program {} created with error {}", program_id, gl::GetError());
+                    }
 
-            let program_id = gl::CreateProgram();
-            gl::AttachShader(program_id, vertex_shader);
-            gl::AttachShader(program_id, fragment_shader);
-            gl::LinkProgram(program_id);
-            gl::DeleteShader(vertex_shader);
-            gl::DeleteShader(fragment_shader);
-            shader_program.program_id = program_id;
-
-            let mut success = 1;
-            let mut log = vec![0; 512];
-
-            gl::GetProgramiv(shader_program.program_id, gl::LINK_STATUS, &mut success);
-            if success == 0 {
-                gl::GetProgramInfoLog(shader_program.program_id, 512, std::ptr::null_mut(), log.as_mut_ptr() as *mut i8);
-                println!("Shader Program Linking Failed: {}", String::from_utf8_lossy(&log)); 
+                    *shader_program = ShaderProgram::Builded { program_id: program_id };
+                }
             }
-            else 
-            {
-                println!("Shader Program {} created with error {}", program_id, gl::GetError());
+            ShaderProgram::Builded { program_id:_ } => {
+                panic!("Error: Attempted to build a shader program that has already been built.");
+            }
+            ShaderProgram::Disposed {} => {
+                panic!("Error: Cannot build a shader program that has been disposed.")
             }
         }
     }
@@ -390,10 +401,21 @@ impl RenderDevice {
     /// Binds a shader program for use in rendering.
     /// Sets the specified shader program as the current OpenGL program for drawing.
     pub fn bind_shader_program(&mut self, shader_program : &mut ShaderProgram) {
-        unsafe {
-            gl::UseProgram(shader_program.program_id);
-            self.shader_program = shader_program.program_id;
+        match shader_program {
+            ShaderProgram::Builded { program_id } => {
+                unsafe {
+                    gl::UseProgram(*program_id);
+                    self.shader_program = *program_id;
+                }
+            }
+            ShaderProgram::PreBuild { fragment_shader:_ , vertex_shader:_ } => {
+                panic!("You try to bind an pre builded program!");
+            }
+            ShaderProgram::Disposed {} => {
+                panic!("You try to bind an disposed program!");
+            }
         }
+        
     }
 
     /// Unbinds the currently bound shader program.
@@ -1026,10 +1048,20 @@ impl RenderDevice {
     /// Disposes of a shader program by deleting its OpenGL program.
     /// This ensures that the shader program is properly cleaned up from the GPU.
     pub fn dispose_shader_program(&mut self, shader_program : &mut ShaderProgram) {
-        unsafe {
-            gl::DeleteProgram(shader_program.program_id);
-            println!("Disposed shader programm {}", shader_program.program_id);
-            shader_program.program_id = 0;
+        match shader_program {
+            ShaderProgram::Builded { program_id } => {
+                unsafe {
+                    gl::DeleteProgram(*program_id);
+                    println!("Disposed shader programm {}", program_id);
+                    *shader_program = ShaderProgram::Disposed{};
+                }
+            }
+            ShaderProgram::Disposed { } => {
+                panic!("You try to dispose an disposed shader!");
+            }
+            ShaderProgram::PreBuild { fragment_shader:_ , vertex_shader:_ } => {
+                *shader_program = ShaderProgram::Disposed{};
+            }
         }
     }
 

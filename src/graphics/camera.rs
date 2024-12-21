@@ -11,14 +11,14 @@ pub trait ICamera {
 }
 
 #[derive(Default)]
-pub struct Camera {
+pub struct OrthographicCamera {
     pub position: Vector3<f32>,
     pub size: Vector3<f32>,
     pub near: f32,
     pub far: f32,
 }
 
-impl ICamera for Camera {
+impl ICamera for OrthographicCamera {
     fn get_projection_matrix(&mut self, viewport : Viewport, screen_correction : f32) -> Matrix4<f32> {
         let half_width =  (viewport.size.x as f32 / 2.0) / screen_correction;
         let half_height = (viewport.size.y as f32 / 2.0) / screen_correction;

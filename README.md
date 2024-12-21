@@ -17,8 +17,6 @@ GFX-Lib offers the following modules:
 See the Github wiki for many examples of how you can use GFX-Lib. 
 https://github.com/Andy16823/gfxlib-rs/wiki/Examples
 
-*This example creates a simple 2D game window, loads a sprite sheet, handles user input, and renders animations and static images to the screen.*
-
 ## Dependencies
 The project uses the following dependencies:
 - [beryllium](https://crates.io/crates/beryllium) | License: Apache-2.0

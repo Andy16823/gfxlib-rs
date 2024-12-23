@@ -78,4 +78,8 @@ impl Window {
         }
     }
 
+    pub fn get_mouse_position(&self) -> Vector2<f32> {
+        let pos = self.handle.get_cursor_pos();
+        return Vector2::new(pos.0 as f32, pos.1 as f32);
+    }
 }

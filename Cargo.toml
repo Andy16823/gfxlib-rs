@@ -9,6 +9,7 @@ beryllium = "0.13.3"
 freetype-rs = { version = "*", features = ["bundled"] }
 gl = "0.14.0"
 glfw = "0.59.0"
+gltf = "1.4.1"
 nalgebra = "0.33.2"
 stb_image = "0.3.0"
 uuid = { version = "1.11.0", features = ["serde", "v4"]}

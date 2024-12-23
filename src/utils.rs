@@ -95,7 +95,7 @@ pub fn get_subimage(image_texture : &mut ImageTexture, columns : u32, rows : u32
 
             return Rect {x: pos_x, y: pos_y, widht: cell_width, height: cell_height};
         }
-        ImageTexture::PreLoad { path: _, dimensions, data : _ } => {
+        ImageTexture::PreLoad { path: _, dimensions, data : _ , mode:_ } => {
             let cell_width = dimensions.x as f32 / columns as f32;
             let cell_height = dimensions.y as f32 / rows as f32;
             let pos_x = column_index as f32 * cell_width;

@@ -35,6 +35,7 @@ pub struct RenderData {
     pub vbo: u32,
     pub ibo: u32,
     pub tbo: u32,
+    pub nbo: u32,
     pub index_count: u32,
 }
 

@@ -4,7 +4,7 @@ use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
-use super::{camera::ICamera, font::{Character, Font}, image_texture::ImageTexture, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, RectShape, Shape, TextureShape}, viewport::Viewport, RenderData, TextAlignment, Texture2DBatch, Texture2DInstance};
+use super::{camera::ICamera, font::{Character, Font}, image_texture::ImageTexture, material::Material, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, RectShape, Shape, TextureShape}, viewport::Viewport, RenderData, TextAlignment, Texture2DBatch, Texture2DInstance};
 
 #[derive(Default)]
 pub struct RenderDevice {
@@ -153,7 +153,7 @@ impl RenderDevice {
     /// Loads a texture from an ImageTexture object into OpenGL.
     pub fn load_texture(&mut self, image_texture: &mut ImageTexture) {
         match image_texture {
-            ImageTexture::PreLoad { path: _, dimensions, data } => {
+            ImageTexture::PreLoad { path: _, dimensions, data , mode } => {
                 unsafe {
                     let mut texture_id: GLuint = 0;
                     gl::GenTextures(1, &mut texture_id);
@@ -165,17 +165,20 @@ impl RenderDevice {
                     gl::TexImage2D(
                         gl::TEXTURE_2D,
                         0,
-                        gl::RGBA  as GLint,
+                        mode.as_glint(),
                         dimensions.x as GLsizei,
                         dimensions.y as GLsizei,
                         0,
-                        gl::RGBA,
+                        mode.as_u32(),
                         gl::UNSIGNED_BYTE,
                         data.as_ptr() as *const GLvoid,
                     );
                     gl::BindTexture(gl::TEXTURE_2D, 0);
                     *image_texture = ImageTexture::Loaded { id: texture_id, dimensions: Vector2::new(dimensions.x, dimensions.y) };
                 }
+            }
+            ImageTexture::Loaded { id: _, dimensions: _ } => {
+                println!("Texture allready loaded!");
             }
             _ => {
                 eprintln!("You try to load an corruped or unloaded texture!");
@@ -469,75 +472,103 @@ impl RenderDevice {
     pub fn init_shape<T: Shape>(&mut self, shape : T) -> RenderData{
         unsafe {
             //create and bin vertex array object
+            let mut render_data = RenderData::default();
             let mut vao : GLuint = 0;
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
 
             //create and bind the vertex buffer for the vao
-            let vertex_buffer = shape.get_vertex_buffer();
-            let mut vbo : GLuint = 0;
-            gl::GenBuffers(1, &mut vbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (vertex_buffer.len() * std::mem::size_of::<f32>()) as isize,
-                vertex_buffer.as_ptr() as *const _,
-                gl::DYNAMIC_DRAW
-            );
-            gl::EnableVertexAttribArray(0);
-            gl::VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                0,
-                std::ptr::null()
-            );
-
+            if let Some(vertex_buffer) = shape.get_vertex_buffer() {
+                let mut vbo : GLuint = 0;
+                gl::GenBuffers(1, &mut vbo);
+                gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (vertex_buffer.len() * std::mem::size_of::<f32>()) as isize,
+                    vertex_buffer.as_ptr() as *const _,
+                    gl::DYNAMIC_DRAW
+                );
+                gl::EnableVertexAttribArray(0);
+                gl::VertexAttribPointer(
+                    0,
+                    3,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                    std::ptr::null()
+                );
+                render_data.vbo = vbo;
+            }
+            
             //create and bind the uv buffer for the vao
-            let uv_buffer = shape.get_uv_buffer();
-            let mut tbo : GLuint = 0;
-            gl::GenBuffers(1, &mut tbo);
-            gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                (uv_buffer.len() * std::mem::size_of::<f32>()) as isize,
-                uv_buffer.as_ptr() as *const _,
-                gl::DYNAMIC_DRAW
-            );
-            gl::EnableVertexAttribArray(1);
-            gl::VertexAttribPointer(
-                1, 
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                0,
-                std::ptr::null()
-            );
+            if let Some(uv_buffer) = shape.get_uv_buffer() {
+                let mut tbo : GLuint = 0;
+                gl::GenBuffers(1, &mut tbo);
+                gl::BindBuffer(gl::ARRAY_BUFFER, tbo);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (uv_buffer.len() * std::mem::size_of::<f32>()) as isize,
+                    uv_buffer.as_ptr() as *const _,
+                    gl::DYNAMIC_DRAW
+                );
+                gl::EnableVertexAttribArray(1);
+                gl::VertexAttribPointer(
+                    1, 
+                    2,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                    std::ptr::null()
+                );
+                render_data.tbo = tbo;
+            }
 
+            //normal buffer
+            if let Some(normal_buffer) = shape.get_normal_buffer() {
+                let mut nbo : GLuint = 0;
+                gl::GenBuffers(1, &mut nbo);
+                gl::BindBuffer(gl::ARRAY_BUFFER, nbo);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (normal_buffer.len() * std::mem::size_of::<f32>()) as isize,
+                    normal_buffer.as_ptr() as *const _,
+                    gl::DYNAMIC_DRAW
+                );
+                gl::EnableVertexAttribArray(2);
+                gl::VertexAttribPointer(
+                    2,
+                    3,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                    std::ptr::null()
+                );
+                render_data.nbo = nbo;
+            }
+            
             //create and bind the index buffer for the vao
-            let index_buffer = shape.get_index_buffer();
-            let mut ibo : GLuint = 0;
-            gl::GenBuffers(1, &mut ibo);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (index_buffer.len() * std::mem::size_of::<u32>()) as isize,
-                index_buffer.as_ptr() as *const _,
-                gl::DYNAMIC_DRAW
-            );
+            if let Some(index_buffer) = shape.get_index_buffer() {
+                let mut ibo : GLuint = 0;
+                gl::GenBuffers(1, &mut ibo);
+                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
+                gl::BufferData(
+                    gl::ELEMENT_ARRAY_BUFFER,
+                    (index_buffer.len() * std::mem::size_of::<u32>()) as isize,
+                    index_buffer.as_ptr() as *const _,
+                    gl::DYNAMIC_DRAW
+                );
 
+                render_data.ibo = ibo;
+                render_data.index_count = index_buffer.len() as u32;
+            }
+
+            //Bind 0 buffer
             gl::BindVertexArray(0);
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-
+            
             //return the render data for the shape
-            return RenderData{
-                vao: vao,
-                vbo: vbo,
-                ibo: ibo,
-                tbo: tbo,
-                index_count: index_buffer.len() as u32
-            };
+            render_data.vao = vao;
+            return render_data;
         }
     }
 
@@ -545,6 +576,7 @@ impl RenderDevice {
     /// for vertex data, index data, and texture coordinates. These buffers are stored in the provided `mesh` object 
     /// and bound to the OpenGL vertex array object (VAO) for rendering.
     pub fn init_mesh(&mut self, mesh : &mut Mesh) {
+        self.init_material(&mut mesh.material);
         unsafe {
             let mut vao: GLuint = 0;
             gl::GenVertexArrays(1, &mut vao);
@@ -571,18 +603,6 @@ impl RenderDevice {
             );
             mesh.render_data.vbo = vbo;
 
-            //Generate index buffer
-            let mut ibo: GLuint = 0;
-            gl::GenBuffers(1, &mut ibo);
-            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
-            gl::BufferData(
-                gl::ELEMENT_ARRAY_BUFFER,
-                (mesh.indicies.len() * std::mem::size_of::<u32>()) as isize,
-                mesh.indicies.as_ptr() as *const _,
-                gl::DYNAMIC_DRAW
-            );
-            mesh.render_data.ibo = ibo;
-
             //Generate texture cords
             let mut tbo: GLuint = 0;
             gl::GenBuffers(1, &mut tbo);
@@ -604,6 +624,39 @@ impl RenderDevice {
             );
             mesh.render_data.tbo = tbo;
 
+            //Generate normal buffer
+            let mut nbo : GLuint = 0;
+            gl::GenBuffers(1, &mut nbo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, nbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (mesh.normals.len() * std::mem::size_of::<f32>()) as isize,
+                mesh.normals.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+            gl::EnableVertexAttribArray(2);
+            gl::VertexAttribPointer(
+                2,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                0,
+                std::ptr::null()
+            );
+            mesh.render_data.nbo = nbo;
+
+            //Generate index buffer
+            let mut ibo: GLuint = 0;
+            gl::GenBuffers(1, &mut ibo);
+            gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
+            gl::BufferData(
+                gl::ELEMENT_ARRAY_BUFFER,
+                (mesh.indicies.len() * std::mem::size_of::<u32>()) as isize,
+                mesh.indicies.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+            mesh.render_data.ibo = ibo;
+
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
             mesh.render_data.vao = vao;
@@ -611,32 +664,49 @@ impl RenderDevice {
         }
     }
 
+    pub fn init_material(&mut self, material : &mut Material) {
+
+        if let Some(mut base_color_texture) = material.base_color_texture.as_mut() {
+            self.load_texture(&mut base_color_texture);
+        }
+
+        if let Some(mut metallic_roughness_texture) = material.metallic_roughness_texture.as_mut() {
+            self.load_texture(&mut metallic_roughness_texture);
+        }
+
+        if let Some(mut normal_map) = material.normal_map.as_mut() {
+            self.load_texture(&mut normal_map);
+        }
+
+    }
+
     /// Draws the mesh with the given transformation and material properties.
     /// The function applies the transformation matrix (`transform`), binds the texture for the mesh, 
     /// and uses the appropriate shaders to render the mesh. The material properties, including texture and color, 
     /// are handled, and OpenGL's `gl::DrawElements` is used to draw the mesh.
     pub fn draw_mesh(&mut self, transform : &mut Transform3D, mesh : &mut Mesh) {
-        match mesh.material.diffuse_texture {
-            ImageTexture::Loaded { id, dimensions: _ } => {
-                unsafe {
-                    gl::Enable(gl::TEXTURE_2D);
-                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
-                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
-                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
-                    gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), mesh.material.diffuse_color.x, mesh.material.diffuse_color.y, mesh.material.diffuse_color.z, mesh.material.diffuse_color.w);
-                    gl::ActiveTexture(gl::TEXTURE0);
-                    gl::BindTexture(gl::TEXTURE_2D, id);
-                    gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
-        
-                    gl::BindVertexArray(mesh.render_data.vao);
-                    gl::DrawElements(gl::TRIANGLES, mesh.indicies.len() as i32, gl::UNSIGNED_INT, std::ptr::null());
-                    gl::BindVertexArray(0);
-                    gl::Disable(gl::TEXTURE_2D);
+        unsafe {
+            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+            gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), mesh.material.base_color_friction.x, mesh.material.base_color_friction.y, mesh.material.base_color_friction.z, mesh.material.base_color_friction.w);
+
+            if let Some(base_color_texture) = &mesh.material.base_color_texture {
+                match base_color_texture {
+                    ImageTexture::Loaded { id, dimensions:_ } => {
+                        gl::ActiveTexture(gl::TEXTURE0);
+                        gl::BindTexture(gl::TEXTURE_2D, *id);
+                        gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
+                    }
+                    _ => {
+                        println!("Error: You try to render an invalid texture");
+                    }
                 }
             }
-            _ => {
-                eprintln!("Texture not loaded");
-            }
+
+            gl::BindVertexArray(mesh.render_data.vao);
+            gl::DrawElements(gl::TRIANGLES, mesh.render_data.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
+            gl::BindVertexArray(0);
         }
     }
 
@@ -979,6 +1049,11 @@ impl RenderDevice {
                 render_data.ibo = 0;
             }
             
+            if render_data.nbo != 0 {
+                gl::DeleteBuffers(1, &render_data.nbo);
+                render_data.nbo = 0;
+            }
+
             if render_data.vao != 0 {
                 gl::DeleteVertexArrays(1, &render_data.vao);
                 render_data.vao = 0;
@@ -1036,12 +1111,27 @@ impl RenderDevice {
         }
     }
 
+    pub fn dispose_material(&mut self, material : &mut Material) {
+        //Dispose basecolor
+        if let Some(mut base_color_texture) = material.base_color_texture.as_mut() {
+            self.dispose_image_texture(&mut base_color_texture);
+        }
+        //Dispose mettalic_roughness
+        if let Some(mut metallic_roughness_texture) = material.metallic_roughness_texture.as_mut() {
+            self.dispose_image_texture(&mut metallic_roughness_texture);
+        }
+        //Dispose normal map
+        if let Some(mut normal_map) = material.normal_map.as_mut() {
+            self.dispose_image_texture(&mut normal_map);
+        }
+    }
+
     /// Disposes of a mesh by deleting its render data and optionally disposing of its diffuse texture.
     /// This ensures that all resources associated with the mesh are cleaned up.
     pub fn dispose_mesh(&mut self, mesh : &mut Mesh, dispose_material : bool) {
         self.dispose_render_data(&mut mesh.render_data);
         if dispose_material == true {
-            self.dispose_image_texture(&mut mesh.material.diffuse_texture);
+            self.dispose_material(&mut mesh.material);
         }
     }
    

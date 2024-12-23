@@ -26,6 +26,7 @@ The project uses the following dependencies:
 - [nalgebra](https://crates.io/crates/nalgebra) | License: Apache-2.0
 - [stb_image](https://crates.io/crates/stb_image) | License: MIT
 - [uuid](https://crates.io/crates/uuid) | License: MIT
+- [gltf](https://github.com/gltf-rs/gltf) | License: MIT
 
 ## Installation
 To use GFX-Lib in your project, add it as a dependency in your `Cargo.toml`:

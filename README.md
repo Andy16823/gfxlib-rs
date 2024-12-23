@@ -37,4 +37,4 @@ gfx = { git = "https://github.com/Andy16823/gfxlib-rs" }
 ```
 
 ## Contributing
-Feel free to open issues or submit pull requests. Contributions are always welcome!
+Feel free to open issues or submit pull requests. Contributions are always welcome! Also make sure to join the gfx discord channel https://discord.com/invite/qZRgRKedBs

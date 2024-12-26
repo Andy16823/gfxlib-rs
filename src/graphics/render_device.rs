@@ -6,6 +6,43 @@ use nalgebra::{Matrix4, Vector2, Vector4};
 use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
 use super::{camera::ICamera, font::{Character, Font}, image_texture::ImageTexture, material::Material, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, RectShape, Shape, TextureShape}, viewport::Viewport, RenderData, TextAlignment, Texture2DBatch, Texture2DInstance};
 
+///Represents texture slots for the render device
+pub enum TextureSlot {
+    Texture0 = gl::TEXTURE0 as isize,
+    Texture1 = gl::TEXTURE1 as isize,
+    Texture2 = gl::TEXTURE2 as isize,
+    Texture3 = gl::TEXTURE3 as isize,
+    Texture4 = gl::TEXTURE4 as isize,
+    Texture5 = gl::TEXTURE5 as isize,
+    Texture6 = gl::TEXTURE6 as isize,
+    Texture7 = gl::TEXTURE7 as isize,
+    Texture8 = gl::TEXTURE8 as isize,
+    Texture9 = gl::TEXTURE9 as isize,
+    Texture10 = gl::TEXTURE10 as isize,
+    Texture11 = gl::TEXTURE11 as isize,
+    Texture12 = gl::TEXTURE12 as isize,
+    Texture13 = gl::TEXTURE13 as isize,
+    Texture14 = gl::TEXTURE14 as isize,
+    Texture15 = gl::TEXTURE15 as isize,
+    Texture16 = gl::TEXTURE16 as isize,
+    Texture17 = gl::TEXTURE17 as isize,
+    Texture18 = gl::TEXTURE18 as isize,
+    Texture19 = gl::TEXTURE19 as isize,
+    Texture20 = gl::TEXTURE20 as isize,
+    Texture21 = gl::TEXTURE21 as isize,
+    Texture22 = gl::TEXTURE22 as isize,
+    Texture23 = gl::TEXTURE23 as isize,
+    Texture24 = gl::TEXTURE24 as isize,
+    Texture25 = gl::TEXTURE25 as isize,
+    Texture26 = gl::TEXTURE26 as isize,
+    Texture27 = gl::TEXTURE27 as isize,
+    Texture28 = gl::TEXTURE28 as isize,
+    Texture29 = gl::TEXTURE29 as isize,
+    Texture30 = gl::TEXTURE30 as isize,
+    Texture31 = gl::TEXTURE31 as isize
+}
+
+
 #[derive(Default)]
 pub struct RenderDevice {
     viewport : Viewport,
@@ -434,10 +471,175 @@ impl RenderDevice {
     /// Queries OpenGL for the uniform's location and returns it, or -1 if not found.
     /// The location is used to set or get uniform values during rendering.
     pub fn get_uniform_location(&mut self, program_id : u32, name : &str) -> i32 {
-        let name = CString::new(name).expect("CString::new failed");
+        let name: CString = CString::new(name).expect("CString::new failed");
         unsafe {
             let location= gl::GetUniformLocation(program_id, name.as_ptr());
             return location;
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_bool(&mut self, location : &str, v0 : bool) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform1i(location_id, v0 as i32);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_1f(&mut self, location : &str, v0 : f32) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform1f(location_id, v0);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_1fv(&mut self, location : &str, values : &[f32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform1fv(location_id, values.len() as i32, values.as_ptr());
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_1i(&mut self, location : &str, v0 : i32) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform1i(location_id, v0);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_1iv(&mut self, location : &str, values : &[i32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform1iv(location_id, values.len() as i32, values.as_ptr());
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_2f(&mut self, location : &str, v0 : f32, v1 : f32) {
+        unsafe  {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform2f(location_id, v0, v1);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_2fv(&mut self, location : &str, values : &[f32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            let count = (values.len() / 2) as i32;
+            gl::Uniform2fv(location_id, count, values.as_ptr());
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_2i(&mut self, location : &str, v0 : i32, v1 : i32) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform2i(location_id, v0, v1);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_2iv(&mut self, location : &str, values : &[i32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            let count = (values.len() / 2) as i32;
+            gl::Uniform2iv(location_id, count, values.as_ptr());
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_3f(&mut self, location : &str, v0 : f32, v1 : f32, v2 : f32) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform3f(location_id, v0, v1, v2);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_3fv(&mut self, location : &str, values : &[f32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            let count = (values.len() / 3) as i32;
+            gl::Uniform3fv(location_id, count, values.as_ptr());
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_3i(&mut self, location : &str, v0 : i32, v1 : i32, v2 : i32) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform3i(location_id, v0, v1, v2);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_3iv(&mut self, location : &str, values : &[i32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            let count = (values.len() / 3) as i32;
+            gl::Uniform3iv(location_id, count, values.as_ptr());
+        }
+    }
+    
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_4f(&mut self, location : &str, v0 : f32, v1 : f32, v2 : f32, v3 : f32) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform4f(location_id, v0, v1, v2, v3);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_4fv(&mut self, location : &str, values : &[f32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            let count = (values.len() / 4) as i32;
+            gl::Uniform4fv(location_id, count, values.as_ptr());
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_4i(&mut self, location : &str, v0 : i32, v1 : i32, v2 : i32, v3 : i32) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::Uniform4i(location_id, v0, v1, v2, v3);
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_4iv(&mut self, location : &str, values : &[i32]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            let count = (values.len() / 4) as i32;
+            gl::Uniform4iv(location_id, count, values.as_ptr());
+        }
+    }
+
+    /// Prepares the binded shader with the given data
+    pub fn prepare_shader_m4(&mut self, location : &str, transpose : bool, matrix : &[f32; 16]) {
+        unsafe {
+            let location_id = self.get_uniform_location(self.shader_program, location);
+            gl::UniformMatrix4fv(location_id, 1, transpose as u8, matrix.as_ptr());
+        }
+    }
+
+    /// Binds the given image_texture to the assigned texture_slot
+    pub fn bind_image_texture(&mut self, texture_slot : TextureSlot, image_texture : ImageTexture) {
+        match image_texture {
+            ImageTexture::Loaded { id, dimensions:_ } => {
+                unsafe {
+                    gl::ActiveTexture(texture_slot as u32);
+                    gl::BindTexture(gl::TEXTURE_2D, id);
+                }
+            }
+            _ => {
+                eprintln!("You try to bind an unloaded image_texture");
+            }
         }
     }
 
@@ -684,11 +886,18 @@ impl RenderDevice {
     /// The function applies the transformation matrix (`transform`), binds the texture for the mesh, 
     /// and uses the appropriate shaders to render the mesh. The material properties, including texture and color, 
     /// are handled, and OpenGL's `gl::DrawElements` is used to draw the mesh.
-    pub fn draw_mesh(&mut self, transform : &mut Transform3D, mesh : &mut Mesh) {
+    pub fn draw_mesh(&mut self, transform : &mut Transform3D, mesh : &mut Mesh, apply_local_matrix : bool) {
+
+        let m_mat = if apply_local_matrix {
+            mesh.get_local_matrix() * transform.get_model_matrix()
+        } else {
+            transform.get_model_matrix()
+        };
+
         unsafe {
             gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
             gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
-            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
+            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, m_mat.as_ptr());
             gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), mesh.material.base_color_friction.x, mesh.material.base_color_friction.y, mesh.material.base_color_friction.z, mesh.material.base_color_friction.w);
 
             if let Some(base_color_texture) = &mesh.material.base_color_texture {

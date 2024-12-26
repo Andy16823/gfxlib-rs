@@ -80,7 +80,7 @@ impl Transform2D {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 pub struct Transform3D {
     pub position: Vector3<f32>,
     pub rotation: Vector3<f32>,

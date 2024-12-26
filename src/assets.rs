@@ -1,6 +1,6 @@
 use std::path::Path;
 use gltf::{material::NormalTexture, mesh::util::{ReadIndices, ReadTexCoords}, texture::Info};
-use nalgebra::Vector4;
+use nalgebra::{Vector3, Vector4};
 
 use crate::{image_texture::ImageTexture, mesh::Mesh};
 
@@ -19,6 +19,16 @@ impl AssetLoader {
                 if let Some(mesh) = node.mesh() {
                     for primitive in mesh.primitives() {
                         let mut gfx_mesh = Mesh::default();
+
+                        //Load transform
+                        match node.transform() {
+                            gltf::scene::Transform::Decomposed { translation, rotation, scale } => {
+                                gfx_mesh.local_translation = Vector3::new(translation[0], translation[1], translation[2]);
+                                gfx_mesh.local_rotation = Vector4::new(rotation[0], rotation[1], rotation[2], rotation[3]);
+                                gfx_mesh.local_scale = Vector3::new(scale[0], scale[1], scale[2]);
+                            },
+                            _ => {}
+                        }
 
                         //Load Basecolor
                         let color_factor = primitive.material().pbr_metallic_roughness().base_color_factor();

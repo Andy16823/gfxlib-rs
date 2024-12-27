@@ -747,6 +747,29 @@ impl RenderDevice {
                 );
                 render_data.nbo = nbo;
             }
+
+            //tangent buffer
+            if let Some(tangend_buffer) = shape.get_tangent_buffer() {
+                let mut tabo : GLuint = 0;
+                gl::GenBuffers(1, &mut tabo);
+                gl::BindBuffer(gl::ARRAY_BUFFER, tabo);
+                gl::BufferData(
+                    gl::ARRAY_BUFFER,
+                    (tangend_buffer.len() * std::mem::size_of::<f32>()) as isize,
+                    tangend_buffer.as_ptr() as *const _,
+                    gl::DYNAMIC_DRAW
+                );
+                gl::EnableVertexAttribArray(3);
+                gl::VertexAttribPointer(
+                    3,
+                    4,
+                    gl::FLOAT,
+                    gl::FALSE,
+                    0,
+                    std::ptr::null()
+                );
+                render_data.tabo = tabo;
+            }
             
             //create and bind the index buffer for the vao
             if let Some(index_buffer) = shape.get_index_buffer() {
@@ -847,6 +870,27 @@ impl RenderDevice {
             );
             mesh.render_data.nbo = nbo;
 
+            //Generate tangent buffer
+            let mut tabo : GLuint = 0;
+            gl::GenBuffers(1, &mut tabo);
+            gl::BindBuffer(gl::ARRAY_BUFFER, tabo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (mesh.tangents.len() * std::mem::size_of::<f32>()) as isize,
+                mesh.tangents.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+            gl::EnableVertexAttribArray(3);
+            gl::VertexAttribPointer(
+                3,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                0,
+                std::ptr::null()
+            );
+            mesh.render_data.tabo = tabo;
+
             //Generate index buffer
             let mut ibo: GLuint = 0;
             gl::GenBuffers(1, &mut ibo);
@@ -900,12 +944,27 @@ impl RenderDevice {
             gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, m_mat.as_ptr());
             gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), mesh.material.base_color_friction.x, mesh.material.base_color_friction.y, mesh.material.base_color_friction.z, mesh.material.base_color_friction.w);
 
+            //bind the basecolor map
             if let Some(base_color_texture) = &mesh.material.base_color_texture {
                 match base_color_texture {
                     ImageTexture::Loaded { id, dimensions:_ } => {
                         gl::ActiveTexture(gl::TEXTURE0);
                         gl::BindTexture(gl::TEXTURE_2D, *id);
                         gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
+                    }
+                    _ => {
+                        println!("Error: You try to render an invalid texture");
+                    }
+                }
+            }
+
+            //bind the normal map
+            if let Some(normal_map) = &mesh.material.normal_map {
+                match normal_map {
+                    ImageTexture::Loaded { id, dimensions: _ } => {
+                        gl::ActiveTexture(gl::TEXTURE1);
+                        gl::BindTexture(gl::TEXTURE_2D, *id);
+                        gl::Uniform1i(self.get_uniform_location(self.shader_program, "normalMapSampler"), 1);
                     }
                     _ => {
                         println!("Error: You try to render an invalid texture");
@@ -1261,6 +1320,11 @@ impl RenderDevice {
             if render_data.nbo != 0 {
                 gl::DeleteBuffers(1, &render_data.nbo);
                 render_data.nbo = 0;
+            }
+
+            if render_data.tabo != 0 {
+                gl::DeleteBuffers(1, &render_data.tabo);
+                render_data.tabo = 0;
             }
 
             if render_data.vao != 0 {

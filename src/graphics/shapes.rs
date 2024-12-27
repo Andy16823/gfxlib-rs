@@ -3,6 +3,7 @@ pub trait Shape {
     fn get_uv_buffer(&self) -> Option<Vec<f32>>;
     fn get_index_buffer(&self) -> Option<Vec<u32>>;
     fn get_normal_buffer(&self) -> Option<Vec<f32>>;
+    fn get_tangent_buffer(&self) -> Option<Vec<f32>>;
 }
 
 pub struct FramebufferShape;
@@ -40,6 +41,10 @@ impl Shape for FramebufferShape {
     }
 
     fn get_normal_buffer(&self) -> Option<Vec<f32>> {
+        return None;
+    }
+
+    fn get_tangent_buffer(&self) -> Option<Vec<f32>> {
         return None;
     }
 
@@ -82,6 +87,10 @@ impl Shape for TextureShape {
     fn get_normal_buffer(&self) -> Option<Vec<f32>> {
         return None;
     }  
+
+    fn get_tangent_buffer(&self) -> Option<Vec<f32>> {
+        return None;
+    }
     
 }
 
@@ -114,6 +123,10 @@ impl Shape for RectShape {
     }    
 
     fn get_normal_buffer(&self) -> Option<Vec<f32>> {
+        return None;
+    }
+
+    fn get_tangent_buffer(&self) -> Option<Vec<f32>> {
         return None;
     }
     

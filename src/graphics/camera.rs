@@ -127,7 +127,7 @@ impl PerspectiveCamera {
 
 impl ICamera for PerspectiveCamera {
     fn get_projection_matrix(&mut self, _viewport : Viewport, _screen_correction : f32) -> Matrix4<f32> {
-        return Matrix4::new_perspective(self.get_aspect_ratio(), self.fov, self.near, self.far);
+        return Matrix4::new_perspective(self.get_aspect_ratio(), self.fov.to_radians(), self.near, self.far);
     }
 
     fn get_view_matrix(&mut self) -> Matrix4<f32> {

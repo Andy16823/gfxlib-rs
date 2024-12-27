@@ -84,6 +84,12 @@ impl AssetLoader {
                                 gfx_mesh.normals.extend_from_slice(&v);
                             }
                         }
+
+                        if let Some(iter) = r.read_tangents() {
+                            for v in iter {
+                                gfx_mesh.tangents.extend_from_slice(&v);
+                            }
+                        }
                         meshes.push(gfx_mesh);                     
                     }
                 }

@@ -7,6 +7,7 @@ pub struct Mesh {
     pub uv_cords: Vec<f32>,
     pub indicies : Vec<u32>,
     pub normals : Vec<f32>,
+    pub tangents : Vec<f32>,
     pub material: Material,
     pub render_data : RenderData,
     pub local_translation : Vector3<f32>,

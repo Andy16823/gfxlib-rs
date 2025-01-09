@@ -14,6 +14,7 @@ pub mod render_target;
 pub mod shapes;
 pub mod viewport;
 pub mod font;
+pub mod light;
 
 /// Represents flags for the text alignment
 pub enum TextAlignment {

@@ -7,6 +7,7 @@ extern crate nalgebra;
 pub mod camera;
 pub mod game_window;
 pub mod image_texture;
+pub mod spritesheet;
 pub mod material;
 pub mod mesh;
 pub mod render_device;

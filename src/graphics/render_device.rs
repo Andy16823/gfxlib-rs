@@ -1020,6 +1020,12 @@ impl RenderDevice {
         }
     }
 
+    /// Renders a specific subregion of an 2D texture from the render id
+    pub fn draw_sub_texture2di<T : ITransform>(&mut self, transform : T, point : Vector2<f32>, size : Vector2<f32>, texture_id : u32, texture_dimensions : Vector2<u32>, color : Vector4<f32>) {
+        let uv_buffer = utils::generate_uv_coords(texture_dimensions.x, texture_dimensions.y, point, size);
+        self.draw_texture2di_internal(transform, texture_id, color, uv_buffer);
+    }
+
     /// Renders a 2D texture to the screen using the provided transformation and color tint.
     /// The texture is rendered with the specified transformation, which includes position, rotation, and scaling.
     /// The color parameter applies a tint to the texture, modifying its original colors.

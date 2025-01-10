@@ -6,7 +6,7 @@ license = "MIT"
 
 [dependencies]
 beryllium = "0.13.3"
-freetype-rs = { version = "*", features = ["bundled"] }
+freetype-rs = { version = "0.37.0", features = ["bundled"] }
 gl = "0.14.0"
 glfw = "0.59.0"
 gltf = "1.4.1"

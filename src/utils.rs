@@ -1,6 +1,7 @@
 use std::ffi::CString;
 
 use nalgebra::{Vector2, Vector4};
+use uuid::Uuid;
 
 use crate::{image_texture::ImageTexture, math::Rect};
 
@@ -85,28 +86,40 @@ pub fn generate_uv_coords(image_width : u32, image_height : u32, point : Vector2
 /// # Returns
 /// A `Rect<f32>` representing the position (`x`, `y`) and size (`width`, `height`) of the subimage. 
 /// Returns a default `Rect` for unsupported texture types.
-pub fn get_subimage(image_texture : &mut ImageTexture, columns : u32, rows : u32, column_index : u32, row_index : u32) -> Rect<f32> {
+pub fn get_subimage_from_texture(image_texture : &mut ImageTexture, columns : u32, rows : u32, column_index : u32, row_index : u32) -> Rect<f32> {
     match image_texture {
         ImageTexture::Loaded { id: _, dimensions } => {
-            let cell_width = dimensions.x as f32 / columns as f32;
-            let cell_height = dimensions.y as f32 / rows as f32;
-            let pos_x = column_index as f32 * cell_width;
-            let pos_y = row_index as f32 * cell_height;
-
-            return Rect {x: pos_x, y: pos_y, widht: cell_width, height: cell_height};
+            return get_subimage(dimensions.x, dimensions.y, columns, rows, column_index, row_index);
         }
         ImageTexture::PreLoad { path: _, dimensions, data : _ , mode:_ } => {
-            let cell_width = dimensions.x as f32 / columns as f32;
-            let cell_height = dimensions.y as f32 / rows as f32;
-            let pos_x = column_index as f32 * cell_width;
-            let pos_y = row_index as f32 * cell_height;
-
-            return Rect {x: pos_x, y: pos_y, widht: cell_width, height: cell_height};
+            return get_subimage(dimensions.x, dimensions.y, columns, rows, column_index, row_index);
         }
         _ => {
             return Rect::default();
         }
     }
+}
+
+/// Retrieves a subimage from the given texture dimensions, dividing it into a grid of `columns` x `rows`.
+///
+/// # Parameters
+/// - `texture_width`: The widht of the texture.
+/// - `texture_height`: The height of the texture.
+/// - `columns`: Number of columns in the grid.
+/// - `rows`: Number of rows in the grid.
+/// - `column_index`: The column index of the desired subimage (0-based).
+/// - `row_index`: The row index of the desired subimage (0-based).
+///
+/// # Returns
+/// A `Rect<f32>` representing the position (`x`, `y`) and size (`width`, `height`) of the subimage. 
+/// Returns a default `Rect` for unsupported texture types.
+pub fn get_subimage(texture_width : u32, texture_height : u32, columns : u32, rows : u32, column_index : u32, row_index : u32) -> Rect<f32> {
+    let cell_width = texture_width as f32 / columns as f32;
+    let cell_height = texture_height as f32 / rows as f32;
+    let pos_x = column_index as f32 * cell_width;
+    let pos_y = row_index as f32 * cell_height;
+
+    return Rect {x: pos_x, y: pos_y, widht: cell_width, height: cell_height};
 }
 
 /// Calculates the UV transformation for a clipped section of a texture.
@@ -129,4 +142,9 @@ pub fn calculate_uv_transform(texture_width : f32, texture_height : f32, clip_x 
     let offset_y = clip_y / texture_height;
 
     return Vector4::new(scale_x, scale_y, offset_x, offset_y);
+}
+/// Creates an new uuid
+/// # Returns an String with an unique id
+pub fn generate_uuid() -> String {
+    return Uuid::new_v4().to_string();
 }

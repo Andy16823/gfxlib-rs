@@ -47,7 +47,8 @@ pub struct RenderData {
 pub struct Texture2DInstance {
     pub transform: Matrix4<f32>,
     pub color: Vector4<f32>,
-    pub uv_transform: Vector4<f32>
+    pub uv_transform: Vector4<f32>,
+    pub visible : bool
 }
 
 
@@ -62,10 +63,16 @@ impl Texture2DInstance {
     ///
     /// # Returns
     /// - A new `Texture2DInstance` object.
-    pub fn new(transform : Matrix4<f32>, color : Vector4<f32>, uv_transform : Vector4<f32>) -> Texture2DInstance {
+    pub fn new(transform : Matrix4<f32>, color : Vector4<f32>, uv_transform : Vector4<f32>, visible : bool) -> Texture2DInstance {
         Texture2DInstance{
-            transform, color, uv_transform
+            transform, color, uv_transform, visible
         }
+    }
+
+    pub fn create_extras_vec4(&self) -> Vector4<f32> {
+        let visible = self.visible as i32;
+        let extras = Vector4::new(visible as f32, 0.0, 0.0, 0.0);
+        return extras;
     }
 
     /// Provides a default UV transformation vector.
@@ -90,7 +97,8 @@ pub enum Texture2DBatch {
         instances: Vec<Texture2DInstance>,
         mbo: u32,
         cbo: u32,
-        uvto: u32
+        uvto: u32,
+        exbo: u32
     },
     /// Disposed state
     Disposed {
@@ -120,10 +128,10 @@ impl Texture2DBatch {
     ///
     /// # Returns
     /// - The number of instances in the batch after adding, or -1 if the batch is not in the `PreLoad` state.
-    pub fn add_instance(&mut self, transform : Matrix4<f32>, color : Vector4<f32>, uv_transform : Vector4<f32>) -> i32 {
+    pub fn add_instance(&mut self, transform : Matrix4<f32>, color : Vector4<f32>, uv_transform : Vector4<f32>, visible : bool) -> i32 {
         match self {
             Texture2DBatch::PreLoad { instances } => {
-                instances.push(Texture2DInstance::new(transform, color, uv_transform));
+                instances.push(Texture2DInstance::new(transform, color, uv_transform, visible));
                 return instances.len() as i32 + 1;
             }
             _ => {
@@ -142,19 +150,21 @@ impl Texture2DBatch {
     ///   - Transform buffer: Contains the transformation matrices.
     ///   - Color buffer: Contains the RGBA color values.
     ///   - UV transform buffer: Contains the UV transformation vectors.
-    pub fn create_buffers(instances: &mut Vec<Texture2DInstance>) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    pub fn create_buffers(instances: &mut Vec<Texture2DInstance>) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>) {
         let mut transform_buffer = Vec::new();
         let mut color_buffer = Vec::new();
         let mut uv_transform_buffer = Vec::new();
+        let mut extras_buffer = Vec::new();
 
         for instance in instances {
             let matrix = instance.transform;
             transform_buffer.extend_from_slice(matrix.as_slice());
             color_buffer.extend_from_slice(instance.color.as_slice());
             uv_transform_buffer.extend_from_slice(instance.uv_transform.as_slice());
+            extras_buffer.extend_from_slice(instance.create_extras_vec4().as_slice());
         }
 
-        (transform_buffer, color_buffer, uv_transform_buffer)
+        (transform_buffer, color_buffer, uv_transform_buffer, extras_buffer)
     }
 }
 

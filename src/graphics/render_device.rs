@@ -231,6 +231,7 @@ impl RenderDevice {
                 let mut mbo : GLuint = 0;
                 let mut cbo : GLuint = 0;
                 let mut uvto: GLuint = 0;
+                let mut exbo: GLuint = 0;
                 unsafe {
                     gl::GenBuffers(1, &mut mbo);
                     gl::BindBuffer(gl::ARRAY_BUFFER, mbo);
@@ -259,9 +260,18 @@ impl RenderDevice {
                         gl::DYNAMIC_DRAW
                     );
 
+                    gl::GenBuffers(1, &mut exbo);
+                    gl::BindBuffer(gl::ARRAY_BUFFER, exbo);
+                    gl::BufferData(
+                            gl::ARRAY_BUFFER,
+                            (buffers.3.len() * std::mem::size_of::<f32>()) as isize,
+                            buffers.3.as_ptr() as *const _,
+                            gl::DYNAMIC_DRAW
+                    );
+
                     gl::BindBuffer(gl::ARRAY_BUFFER, 0);
                 }
-                *instance_batch = Texture2DBatch::Loaded { instances: instances.clone(), mbo: mbo, cbo : cbo, uvto: uvto}
+                *instance_batch = Texture2DBatch::Loaded { instances: instances.clone(), mbo: mbo, cbo : cbo, uvto: uvto, exbo: exbo}
             }
             _ => {
                 eprintln!("You try to load an allready loaded instance batch.");
@@ -272,7 +282,7 @@ impl RenderDevice {
     /// Updates a specific instance in a loaded `Texture2DBatch`, modifying its transformation, color, and UV data in GPU buffers.
     pub fn update_texture2d_batch_instance(&mut self, texture2d_batch : &mut Texture2DBatch, index : isize, instance : Texture2DInstance) {
         match texture2d_batch {
-            Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
+            Texture2DBatch::Loaded { instances, mbo, cbo, uvto, exbo } => {
                 unsafe {
                     instances[index as usize] = instance.clone();
                     //update the transform
@@ -290,6 +300,11 @@ impl RenderDevice {
                     offset = index * size;
                     gl::BindBuffer(gl::ARRAY_BUFFER, *uvto);
                     gl::BufferSubData(gl::ARRAY_BUFFER, offset, size, instance.uv_transform.as_slice().as_ptr() as *const _);
+                    //update extras
+                    size = 4 * std::mem::size_of::<f32>() as isize;
+                    offset = index * size;
+                    gl::BindBuffer(gl::ARRAY_BUFFER, *exbo);
+                    gl::BufferSubData(gl::ARRAY_BUFFER, offset, size, instance.create_extras_vec4().as_slice().as_ptr() as *const _);
                     //reset buffer
                     gl::BindBuffer(gl::ARRAY_BUFFER, 0);
                 }
@@ -1088,7 +1103,7 @@ impl RenderDevice {
         match image_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
                 match instance_batch {
-                    Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
+                    Texture2DBatch::Loaded { instances, mbo, cbo, uvto, exbo} => {
                         let shape = self.render_shapes.get("texture_batch_shape").copied();
                         match shape {
                             Some(shape) => {
@@ -1132,6 +1147,12 @@ impl RenderDevice {
                                     gl::EnableVertexAttribArray(7);
                                     gl::VertexAttribPointer(7, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
                                     gl::VertexAttribDivisor(7, 1);
+
+                                    //Bind the extra buffer
+                                    gl::BindBuffer(gl::ARRAY_BUFFER, *exbo);
+                                    gl::EnableVertexAttribArray(8);
+                                    gl::VertexAttribPointer(8, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+                                    gl::VertexAttribDivisor(8, 1);
 
                                     //Draw the elements instanced
                                     gl::DrawElementsInstanced(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null(), instances.len() as i32);
@@ -1438,11 +1459,12 @@ impl RenderDevice {
     /// This ensures that the batch resources are cleaned up properly.
     pub fn dispose_texture2d_batch(&mut self, instance_batch : &mut Texture2DBatch) {
         match instance_batch {
-            Texture2DBatch::Loaded { instances, mbo, cbo, uvto } => {
+            Texture2DBatch::Loaded { instances, mbo, cbo, uvto, exbo } => {
                 unsafe {
                     gl::DeleteBuffers(1, mbo);
                     gl::DeleteBuffers(1, cbo);
                     gl::DeleteBuffers(1, uvto);
+                    gl::DeleteBuffers(1, exbo);
                     *instance_batch = Texture2DBatch::Disposed { instances: instances.clone() }
                 }
             }

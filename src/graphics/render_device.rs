@@ -1102,76 +1102,80 @@ impl RenderDevice {
     pub fn draw_texture2d_batch(&mut self, image_texture: &mut ImageTexture, instance_batch : &mut Texture2DBatch) {
         match image_texture {
             ImageTexture::Loaded { id, dimensions: _ } => {
-                match instance_batch {
-                    Texture2DBatch::Loaded { instances, mbo, cbo, uvto, exbo} => {
-                        let shape = self.render_shapes.get("texture_batch_shape").copied();
-                        match shape {
-                            Some(shape) => {
-                                unsafe {
-                                    let vec4_size = std::mem::size_of::<f32>() * 4;
-                                    let matrix_stride = vec4_size * 4;
+                self.draw_texture2di_batch(*id, instance_batch);
+            }
+            _ => {
+                eprintln!("Error: The provided ImageTexture is not loaded. Ensure that the ImageTexture is properly initialized and loaded before attempting to draw.");
+            }
+        }
+    }
 
-                                    //Prepare shader
-                                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
-                                    gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
-                                    gl::ActiveTexture(gl::TEXTURE0);
-                                    gl::BindTexture(gl::TEXTURE_2D, *id);
-                                    gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
+    pub fn draw_texture2di_batch(&mut self, texture_id: u32, instance_batch : &mut Texture2DBatch) {
+        match instance_batch {
+            Texture2DBatch::Loaded { instances, mbo, cbo, uvto, exbo} => {
+                let shape = self.render_shapes.get("texture_batch_shape").copied();
+                match shape {
+                    Some(shape) => {
+                        unsafe {
+                            let vec4_size = std::mem::size_of::<f32>() * 4;
+                            let matrix_stride = vec4_size * 4;
 
-                                    //Bind the vao
-                                    gl::BindVertexArray(shape.vao);
+                            //Prepare shader
+                            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
+                            gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
+                            gl::ActiveTexture(gl::TEXTURE0);
+                            gl::BindTexture(gl::TEXTURE_2D, texture_id);
+                            gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
 
-                                    //Bind the color buffer and assign it to the location per instance
-                                    gl::BindBuffer(gl::ARRAY_BUFFER, *cbo);
-                                    gl::EnableVertexAttribArray(2);
-                                    gl::VertexAttribPointer(2, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
-                                    gl::VertexAttribDivisor(2, 1);
+                            //Bind the vao
+                            gl::BindVertexArray(shape.vao);
 
-                                    //Bind the transforms buffer and assign it to the locations per instance
-                                    gl::BindBuffer(gl::ARRAY_BUFFER, *mbo);
-                                    gl::EnableVertexAttribArray(3);
-                                    gl::VertexAttribPointer(3, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (0 * vec4_size) as *const _);
-                                    gl::VertexAttribDivisor(3, 1);
-                                    gl::EnableVertexAttribArray(4);
-                                    gl::VertexAttribPointer(4, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (1 * vec4_size) as *const _);
-                                    gl::VertexAttribDivisor(4, 1);
-                                    gl::EnableVertexAttribArray(5);
-                                    gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (2 * vec4_size) as *const _);
-                                    gl::VertexAttribDivisor(5, 1);
-                                    gl::EnableVertexAttribArray(6);
-                                    gl::VertexAttribPointer(6, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (3 * vec4_size) as *const _);
-                                    gl::VertexAttribDivisor(6, 1);
+                            //Bind the color buffer and assign it to the location per instance
+                            gl::BindBuffer(gl::ARRAY_BUFFER, *cbo);
+                            gl::EnableVertexAttribArray(2);
+                            gl::VertexAttribPointer(2, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+                            gl::VertexAttribDivisor(2, 1);
 
-                                    //Bind the uv transform buffer
-                                    gl::BindBuffer(gl::ARRAY_BUFFER, *uvto);
-                                    gl::EnableVertexAttribArray(7);
-                                    gl::VertexAttribPointer(7, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
-                                    gl::VertexAttribDivisor(7, 1);
+                            //Bind the transforms buffer and assign it to the locations per instance
+                            gl::BindBuffer(gl::ARRAY_BUFFER, *mbo);
+                            gl::EnableVertexAttribArray(3);
+                            gl::VertexAttribPointer(3, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (0 * vec4_size) as *const _);
+                            gl::VertexAttribDivisor(3, 1);
+                            gl::EnableVertexAttribArray(4);
+                            gl::VertexAttribPointer(4, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (1 * vec4_size) as *const _);
+                            gl::VertexAttribDivisor(4, 1);
+                            gl::EnableVertexAttribArray(5);
+                            gl::VertexAttribPointer(5, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (2 * vec4_size) as *const _);
+                            gl::VertexAttribDivisor(5, 1);
+                            gl::EnableVertexAttribArray(6);
+                            gl::VertexAttribPointer(6, 4, gl::FLOAT, gl::FALSE, matrix_stride as i32, (3 * vec4_size) as *const _);
+                            gl::VertexAttribDivisor(6, 1);
 
-                                    //Bind the extra buffer
-                                    gl::BindBuffer(gl::ARRAY_BUFFER, *exbo);
-                                    gl::EnableVertexAttribArray(8);
-                                    gl::VertexAttribPointer(8, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
-                                    gl::VertexAttribDivisor(8, 1);
+                            //Bind the uv transform buffer
+                            gl::BindBuffer(gl::ARRAY_BUFFER, *uvto);
+                            gl::EnableVertexAttribArray(7);
+                            gl::VertexAttribPointer(7, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+                            gl::VertexAttribDivisor(7, 1);
 
-                                    //Draw the elements instanced
-                                    gl::DrawElementsInstanced(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null(), instances.len() as i32);
-                                    gl::BindVertexArray(0);
-                                    gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-                                }
-                            }
-                            None => {
-                                eprintln!("Error: Render shape 'texture_batch_shape' not found. Ensure that the render_shapes map contains a valid entry for 'texture_batch_shape'.");
-                            }
+                            //Bind the extra buffer
+                            gl::BindBuffer(gl::ARRAY_BUFFER, *exbo);
+                            gl::EnableVertexAttribArray(8);
+                            gl::VertexAttribPointer(8, 4, gl::FLOAT, gl::FALSE, 0, std::ptr::null());
+                            gl::VertexAttribDivisor(8, 1);
+
+                            //Draw the elements instanced
+                            gl::DrawElementsInstanced(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null(), instances.len() as i32);
+                            gl::BindVertexArray(0);
+                            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
                         }
                     }
-                    _ => {
-                        eprintln!("Error: The provided InstanceBatch is not loaded. Ensure that the InstanceBatch is properly initialized and loaded before attempting to draw.");
+                    None => {
+                        eprintln!("Error: Render shape 'texture_batch_shape' not found. Ensure that the render_shapes map contains a valid entry for 'texture_batch_shape'.");
                     }
                 }
             }
             _ => {
-                eprintln!("Error: The provided ImageTexture is not loaded. Ensure that the ImageTexture is properly initialized and loaded before attempting to draw.");
+                eprintln!("Error: The provided InstanceBatch is not loaded. Ensure that the InstanceBatch is properly initialized and loaded before attempting to draw.");
             }
         }
     }

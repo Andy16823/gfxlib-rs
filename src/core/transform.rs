@@ -5,7 +5,7 @@ pub trait ITransform: Clone {
     fn get_aspect_ratio(self) -> f32;
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Transform2D {
     pub position : Vector2<f32>,
     pub rotation : f32,

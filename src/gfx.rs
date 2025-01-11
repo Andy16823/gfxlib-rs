@@ -8,11 +8,9 @@ pub struct FrameStatsRecorder {
     /// Time at the start of the current frame.
     pub ellapsed_time: Instant,
     /// The time difference between the current and previous frames (in seconds).
-    pub delta_time: f32,
-    /// The time at which the last frame was completed (in seconds).
-    pub last_frame_s: f32,
+    pub delta_time: u128,
     /// The time elapsed for the last frame (in milliseconds).
-    pub last_frame_ms: u128,
+    pub last_frame: u128,
 }
 
 impl FrameStatsRecorder {
@@ -26,9 +24,8 @@ impl FrameStatsRecorder {
     pub fn new() -> FrameStatsRecorder {
         FrameStatsRecorder {
             ellapsed_time: Instant::now(),
-            delta_time: 0.0,
-            last_frame_s: 0.0,
-            last_frame_ms: 0,
+            delta_time: 0,
+            last_frame: 0,
         }
     }
 
@@ -39,10 +36,9 @@ impl FrameStatsRecorder {
     /// The `ellapsed_time` is reset to the current time, preparing it for the next frame.
     pub fn frame_complete(&mut self) {
         let ellapsed = self.ellapsed_time.elapsed();
-        let current_frame_time = ellapsed.as_secs_f32();
-        self.last_frame_ms = ellapsed.as_millis();
-        self.delta_time = current_frame_time - self.last_frame_s;
-        self.last_frame_s = current_frame_time;
+        let current_frame_time = ellapsed.as_millis();
+        self.delta_time = current_frame_time - self.last_frame;
+        self.last_frame = current_frame_time;
         self.ellapsed_time = Instant::now();
     }
 
@@ -60,7 +56,7 @@ impl FrameStatsRecorder {
     pub fn print_stats(&self) {
         println!(
             "Framestats: frametime: {}ms deltatime: {}s fps: {}",
-            self.last_frame_ms, self.delta_time, self.fps()
+            self.last_frame, self.delta_time, self.fps()
         );
     }
 
@@ -71,11 +67,11 @@ impl FrameStatsRecorder {
     ///
     /// # Returns
     /// The FPS, calculated as the reciprocal of `delta_time`. If `delta_time` is 0, returns 0.0.
-    pub fn fps(&self) -> f32 {
-        if self.delta_time > 0.0 {
-            1.0 / (self.last_frame_ms as f32 / 1000.0)
+    pub fn fps(&self) -> u128 {
+        if self.last_frame > 0 {
+            1 / (self.last_frame / 1000)
         } else {
-            0.0 
+            0
         }
     }
 }

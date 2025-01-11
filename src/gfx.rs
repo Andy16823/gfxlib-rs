@@ -1,0 +1,81 @@
+use std::time::Instant;
+
+/// A struct that records and provides frame statistics, such as frame time and delta time.
+///
+/// `FrameStatsRecorder` is used to track the time taken by each frame, calculate the delta time (time difference between frames),
+/// and provide the elapsed time statistics, including the frame time in milliseconds and the delta time in seconds.
+pub struct FrameStatsRecorder {
+    /// Time at the start of the current frame.
+    pub ellapsed_time: Instant,
+    /// The time difference between the current and previous frames (in seconds).
+    pub delta_time: f32,
+    /// The time at which the last frame was completed (in seconds).
+    pub last_frame_s: f32,
+    /// The time elapsed for the last frame (in milliseconds).
+    pub last_frame_ms: u128,
+}
+
+impl FrameStatsRecorder {
+    /// Creates a new `FrameStatsRecorder` instance.
+    ///
+    /// This method initializes the recorder with default values. The `ellapsed_time` is set to the current time,
+    /// and the `delta_time`, `last_frame_s`, and `last_frame_ms` are initialized to 0.
+    ///
+    /// # Returns
+    /// A new `FrameStatsRecorder` with default values.
+    pub fn new() -> FrameStatsRecorder {
+        FrameStatsRecorder {
+            ellapsed_time: Instant::now(),
+            delta_time: 0.0,
+            last_frame_s: 0.0,
+            last_frame_ms: 0,
+        }
+    }
+
+    /// Completes the current frame, calculates the delta time, and updates the frame statistics.
+    ///
+    /// This method should be called once per frame, ideally at the end of the frame.
+    /// It calculates the time elapsed for the current frame and updates the `delta_time`, `last_frame_s`, and `last_frame_ms` fields.
+    /// The `ellapsed_time` is reset to the current time, preparing it for the next frame.
+    pub fn frame_complete(&mut self) {
+        let ellapsed = self.ellapsed_time.elapsed();
+        let current_frame_time = ellapsed.as_secs_f32();
+        self.last_frame_ms = ellapsed.as_millis();
+        self.delta_time = current_frame_time - self.last_frame_s;
+        self.last_frame_s = current_frame_time;
+        self.ellapsed_time = Instant::now();
+    }
+
+    /// Prints the current frame statistics: frame time (in milliseconds), delta time (in seconds), and FPS.
+    ///
+    /// This method prints the following information:
+    /// - The frame time in milliseconds (`last_frame_ms`)
+    /// - The delta time in seconds (`delta_time`)
+    /// - The calculated FPS (frames per second), based on the delta time.
+    ///
+    /// # Example Output
+    /// ```
+    /// Framestats: frametime: 16ms Deltatime: 0.016s FPS: 62.5
+    /// ```
+    pub fn print_stats(&self) {
+        println!(
+            "Framestats: frametime: {}ms deltatime: {}s fps: {}",
+            self.last_frame_ms, self.delta_time, self.fps()
+        );
+    }
+
+    /// Calculates and returns the current frames per second (FPS).
+    ///
+    /// FPS is calculated as the inverse of `delta_time` (1 / delta_time). If the delta time is 0.0 (which may happen in certain edge cases),
+    /// the FPS will be returned as 0.0.
+    ///
+    /// # Returns
+    /// The FPS, calculated as the reciprocal of `delta_time`. If `delta_time` is 0, returns 0.0.
+    pub fn fps(&self) -> f32 {
+        if self.delta_time > 0.0 {
+            1.0 / self.delta_time // FPS is the inverse of delta_time
+        } else {
+            0.0 // Return 0 if delta_time is 0 (avoid division by zero)
+        }
+    }
+}

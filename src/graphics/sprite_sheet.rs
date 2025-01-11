@@ -132,5 +132,18 @@ impl SpriteSheet {
         return self.texture_dimensions;
     }
     
+    /// Returns the tile column and row from the given index
+    /// 
+    /// # Returns
+    /// Returns a `(u32, u32)` where 0 is the column and 1 is the row
+    pub fn tile_from_index(&mut self, index : u32, reversed_row : bool) -> (u32, u32) {
+        let col = index % self.columns;
+        let mut row = index / self.columns;
+        if reversed_row {
+            row = self.rows - 1 - row;
+        }
+        return (col, row);
+    }
+
 }
 

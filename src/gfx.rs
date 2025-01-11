@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use crate::utils;
+
 /// A struct that records and provides frame statistics, such as frame time and delta time.
 ///
 /// `FrameStatsRecorder` is used to track the time taken by each frame, calculate the delta time (time difference between frames),
@@ -7,6 +9,8 @@ use std::time::Instant;
 pub struct FrameStatsRecorder {
     /// Time at the start of the current frame.
     pub ellapsed_time: Instant,
+    /// The ellpased millisecs
+    pub ellapsed: u128,
     /// The time difference between the current and previous frames (in seconds).
     pub delta_time: u128,
     /// The time elapsed for the last frame (in milliseconds).
@@ -24,6 +28,7 @@ impl FrameStatsRecorder {
     pub fn new() -> FrameStatsRecorder {
         FrameStatsRecorder {
             ellapsed_time: Instant::now(),
+            ellapsed: 0,
             delta_time: 0,
             last_frame: 0,
         }
@@ -36,8 +41,9 @@ impl FrameStatsRecorder {
     /// The `ellapsed_time` is reset to the current time, preparing it for the next frame.
     pub fn frame_complete(&mut self) {
         let ellapsed = self.ellapsed_time.elapsed();
-        let current_frame_time = ellapsed.as_millis();
-        self.delta_time = current_frame_time - self.last_frame;
+        self.ellapsed = ellapsed.as_millis();
+        let current_frame_time = utils::current_time_millis();
+        self.delta_time = current_frame_time.wrapping_sub(self.last_frame);
         self.last_frame = current_frame_time;
         self.ellapsed_time = Instant::now();
     }
@@ -56,7 +62,7 @@ impl FrameStatsRecorder {
     pub fn print_stats(&self) {
         println!(
             "Framestats: frametime: {}ms deltatime: {}s fps: {}",
-            self.last_frame, self.delta_time, self.fps()
+            self.ellapsed, self.delta_time, self.fps()
         );
     }
 
@@ -68,10 +74,11 @@ impl FrameStatsRecorder {
     /// # Returns
     /// The FPS, calculated as the reciprocal of `delta_time`. If `delta_time` is 0, returns 0.0.
     pub fn fps(&self) -> u128 {
-        if self.last_frame > 0 {
-            1 / (self.last_frame / 1000)
+        if self.delta_time > 0 {
+            // Avoid division by zero by checking delta_time
+            return 1000 / self.delta_time;
         } else {
-            0
+            return 0;
         }
     }
 }

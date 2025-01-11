@@ -73,9 +73,9 @@ impl FrameStatsRecorder {
     /// The FPS, calculated as the reciprocal of `delta_time`. If `delta_time` is 0, returns 0.0.
     pub fn fps(&self) -> f32 {
         if self.delta_time > 0.0 {
-            1.0 / self.delta_time // FPS is the inverse of delta_time
+            1.0 / (self.last_frame_ms as f32 / 1000.0)
         } else {
-            0.0 // Return 0 if delta_time is 0 (avoid division by zero)
+            0.0 
         }
     }
 }

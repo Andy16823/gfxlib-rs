@@ -7,7 +7,7 @@ extern crate nalgebra;
 pub mod camera;
 pub mod game_window;
 pub mod image_texture;
-pub mod spritesheet;
+pub mod sprite_sheet;
 pub mod material;
 pub mod mesh;
 pub mod render_device;
@@ -43,7 +43,7 @@ pub struct RenderData {
 }
 
 /// Represents an instance of a 2D texture with its transformation matrix, color, and UV transformation.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Copy)]
 pub struct Texture2DInstance {
     pub transform: Matrix4<f32>,
     pub color: Vector4<f32>,
@@ -132,10 +132,25 @@ impl Texture2DBatch {
         match self {
             Texture2DBatch::PreLoad { instances } => {
                 instances.push(Texture2DInstance::new(transform, color, uv_transform, visible));
-                return instances.len() as i32 + 1;
+                return instances.len() as i32 - 1;
             }
             _ => {
                 return -1;
+            }
+        }
+    }
+
+    /// Returns an instance from the Texture2DBatch at the given index
+    pub fn get_instance(&mut self, index : i32) -> Texture2DInstance {
+        match self {
+            Texture2DBatch::PreLoad { instances } => {
+                return instances[index as usize];
+            }
+            Texture2DBatch::Loaded { instances, mbo:_, cbo:_, uvto:_, exbo:_ } => {
+                return instances[index as usize]; 
+            }
+            Texture2DBatch::Disposed { instances } => {
+                return instances[index as usize];
             }
         }
     }

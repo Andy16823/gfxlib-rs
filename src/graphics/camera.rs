@@ -10,7 +10,7 @@ pub trait ICamera {
     fn set_camera_position(&mut self, vec : Vector3<f32>);
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct OrthographicCamera {
     pub position: Vector3<f32>,
     pub size: Vector3<f32>,
@@ -54,7 +54,7 @@ impl ICamera for OrthographicCamera {
 
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct PerspectiveCamera {
     pub position: Vector3<f32>,
     pub rotation : Vector3<f32>,

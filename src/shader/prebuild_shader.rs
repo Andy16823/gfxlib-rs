@@ -15,18 +15,15 @@ impl PrebuildShaderProgram for Texture2DShader  {
                 layout(location = 1) in vec2 inTexCoord;
 
                 out vec2 texCoord;
-                out vec4 vColor;
 
                 uniform mat4 p_mat;
                 uniform mat4 v_mat;
                 uniform mat4 m_mat;
-                uniform vec4 vertexColor;
-
+                
                 void main() {
                     mat4 mvp = p_mat * v_mat * m_mat;
                     gl_Position = mvp * vec4(inPosition, 1.0);
                     texCoord = inTexCoord;
-                    vColor = vertexColor;
                 }
             "),
         };
@@ -39,10 +36,17 @@ impl PrebuildShaderProgram for Texture2DShader  {
 
                 out vec4 fragColor; 
 
+                uniform vec4 vertexColor;
+                uniform vec4 uvTransform;
+                uniform vec2 uvScale;
                 uniform sampler2D textureSampler;
 
                 void main() {
-                    fragColor = texture(textureSampler, texCoord) * vColor;
+                    vec2 localUV = fract(texCoord * uvScale);
+                    vec2 transformedTexCoord = localUV * uvTransform.xy + uvTransform.zw;
+                    vec4 texColor = texture(textureSampler, transformedTexCoord);
+
+                    fragColor = texColor * vertexColor;
                 }
             ")
         };
@@ -218,51 +222,6 @@ impl PrebuildShaderProgram for FontShader {
 
 }
 
-pub struct SolidRectShader;
-impl PrebuildShaderProgram for SolidRectShader {
-
-    fn build_shader_program() -> ShaderProgram {
-
-        let vertex_shader = Shader {
-            source: String::from("
-                #version 410 core
-                layout(location = 0) in vec3 inPosition;
-
-                out vec4 vColor;
-
-                uniform mat4 p_mat;
-                uniform mat4 v_mat;
-                uniform mat4 m_mat;
-                uniform vec4 vertexColor;
-
-                void main() {
-                    mat4 mvp = p_mat * v_mat * m_mat;
-                    gl_Position = mvp * vec4(inPosition, 1.0);
-                    vColor = vertexColor;
-                }
-            "),
-        };
-
-        let fragment_shader = Shader {
-            source: String::from("
-                #version 330 core
-                in vec4 vColor;
-
-                out vec4 fragColor; 
-
-                void main() {
-                    fragColor = vColor;
-                } 
-            ")
-        };
-
-        return ShaderProgram::PreBuild {
-            vertex_shader: vertex_shader,
-            fragment_shader: fragment_shader
-        }
-    }
-}
-
 pub struct RectShader;
 impl PrebuildShaderProgram for RectShader {
 
@@ -297,8 +256,14 @@ impl PrebuildShaderProgram for RectShader {
                 uniform vec4 vertexColor;
                 uniform float aspect;
                 uniform float borderWidth;
+                uniform bool isSolid;
 
                 void main() {
+                    if(isSolid) {
+                        fragColor = vertexColor;
+                        return;
+                    }
+
                     float bw = (borderWidth / 100) * aspect;
                     float maxX = 0.5 - bw / aspect;
                     float minX = -0.5 + bw / aspect;
@@ -308,7 +273,7 @@ impl PrebuildShaderProgram for RectShader {
                    if (position.x < maxX && position.x > minX && position.y < maxY && position.y > minY) {
                         discard;
                    } else {
-                        gl_FragColor = vertexColor;
+                        fragColor = vertexColor;
                    }  
                 }
             ")

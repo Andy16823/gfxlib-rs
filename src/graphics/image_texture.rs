@@ -1,6 +1,8 @@
 use gl::types::GLint;
-use nalgebra::Vector2;
+use nalgebra::{Vector2, Vector4};
 use stb_image::image::{self, LoadResult};
+
+use crate::{math::Rect, utils};
 
 #[derive(Clone, Copy)]
 pub enum ColorMode {
@@ -46,6 +48,7 @@ pub enum ImageTexture {
 
 impl ImageTexture {
     
+    /// Loads an image texture from a file.
     pub fn load_from_file(file: &str, flip_vertically : bool) -> ImageTexture {
         unsafe {
             stb_image::stb_image::stbi_set_flip_vertically_on_load_thread(flip_vertically as i32);
@@ -82,6 +85,7 @@ impl ImageTexture {
         }
     }
 
+    /// Loads an image texture from a vector of bytes and dimensions.
     pub fn load_from_data(data : Vec<u8>, dimensions : Vector2<u32>) -> ImageTexture {
         return ImageTexture::PreLoad { 
             path: String::new(), 
@@ -90,5 +94,11 @@ impl ImageTexture {
             mode: ColorMode::default()
         };
     }
+
+    /// Calculates the UV transformation for the texture based on the given rectangle.
+    pub fn calculate_uv_transform(&mut self, rect : Rect<f32>) -> Vector4<f32> {
+        return utils::calculate_uv_transform_from_texture(self, rect);
+    }
     
 }
+

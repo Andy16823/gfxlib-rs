@@ -6,7 +6,7 @@ use std::{
 use nalgebra::{Vector2, Vector4};
 use uuid::Uuid;
 
-use crate::{image_texture::ImageTexture, math::Rect};
+use crate::{graphics::image_texture::ImageTexture, math::Rect};
 
 /// Loads the content of a file into a string.
 ///
@@ -172,6 +172,43 @@ pub fn get_subimage(
 }
 
 /// Calculates the UV transformation for a clipped section of a texture.
+pub fn calculate_uv_transform_from_texture(
+    image_texture: &mut ImageTexture,
+    rect: Rect<f32>,
+) -> Vector4<f32> {
+    match image_texture {
+        ImageTexture::Loaded { id: _, dimensions } => {
+            return calculate_uv_transform(
+                dimensions.x as f32,
+                dimensions.y as f32,
+                rect.x,
+                rect.y,
+                rect.widht,
+                rect.height,
+            );
+        }
+        ImageTexture::PreLoad {
+            path: _,
+            dimensions,
+            data: _,
+            mode: _,
+        } => {
+            return calculate_uv_transform(
+                dimensions.x as f32,
+                dimensions.y as f32,
+                rect.x,
+                rect.y,
+                rect.widht,
+                rect.height,
+            );
+        }
+        _ => {
+            return Vector4::default();
+        }
+    }
+}
+
+/// Calculates the UV transformation for a clipped section of a texture.
 ///
 /// # Arguments
 /// - `texture_width`: The full width of the texture in pixels.
@@ -205,7 +242,8 @@ pub fn generate_uuid() -> String {
     return Uuid::new_v4().to_string();
 }
 
-pub fn current_time_millis() -> u128{
+/// Returns the current time in milliseconds since the UNIX epoch.
+pub fn current_time_millis() -> u128 {
     let now = SystemTime::now();
 
     return now

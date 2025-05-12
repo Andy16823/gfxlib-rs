@@ -3,7 +3,7 @@ use freetype::{face::LoadFlag, Library};
 use gl::types::*;
 use glfw::PWindow;
 use nalgebra::{Matrix4, Vector2, Vector4};
-use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram, utils};
+use crate::{core::transform::{ITransform, Transform3D}, shader::ShaderProgram};
 use super::{camera::ICamera, font::{Character, Font}, image_texture::ImageTexture, material::Material, mesh::Mesh, render_target::RenderTarget, shapes::{FramebufferShape, RectShape, Shape, TextureShape}, viewport::Viewport, RenderData, TextAlignment, Texture2DBatch, Texture2DInstance};
 
 ///Represents texture slots for the render device
@@ -643,6 +643,55 @@ impl RenderDevice {
         }
     }
 
+    /// Creates an OpenGL array buffer and returns its ID.
+    pub fn create_array_buffer() -> i32 {
+        let mut buffer_id : GLuint = 0;
+        unsafe {
+            gl::GenBuffers(1, &mut buffer_id);
+        }
+        return buffer_id as i32;
+    }
+
+    /// Sets dynamic data for an OpenGL array buffer.
+    pub fn set_dynamic_buffer_data<T>(buffer_id : i32, data : &[T], size : usize) {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, buffer_id as GLuint);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (size * std::mem::size_of::<T>()) as isize,
+                data.as_ptr() as *const _,
+                gl::DYNAMIC_DRAW
+            );
+        }
+    }
+
+    /// Sets static data for an OpenGL array buffer.
+    pub fn set_static_buffer_data<T>(buffer_id : i32, data : &[T], size : usize) {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, buffer_id as GLuint);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (size * std::mem::size_of::<T>()) as isize,
+                data.as_ptr() as *const _,
+                gl::STATIC_DRAW
+            );
+        }
+    }
+
+    /// Binds the buffer with the given ID to the OpenGL context.
+    pub fn use_buffer(buffer_id : i32) {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, buffer_id as GLuint);
+        }
+    }
+
+    /// Unbinds the currently bound buffer in OpenGL.
+    pub fn unbind_buffer() {
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+        }
+    }
+
     /// Binds the given image_texture to the assigned texture_slot
     pub fn bind_image_texture(&mut self, texture_slot : TextureSlot, image_texture : ImageTexture) {
         match image_texture {
@@ -998,8 +1047,7 @@ impl RenderDevice {
     /// This function is often used for rendering off-screen content (like post-processing effects) to the screen.
     /// The texture is rendered with the provided transformation (position, rotation, scale) and optional color tint.
     pub fn draw_texture2drt<T : ITransform>(&mut self, transform : T, render_target: &mut RenderTarget, color: Vector4<f32>) {
-        let uv_buffer = utils::generate_uv_coords(render_target.size.x, render_target.size.y, Vector2::new(0.0, 0.0), Vector2::new(render_target.size.x as f32, render_target.size.y as f32));
-        self.draw_texture2di_internal(transform, render_target.texture_id, color, uv_buffer);
+        self.draw_texture2di_internal(transform, render_target.texture_id, color, Vector4::new(1.0, 1.0, 1.0, 1.0), Vector2::new(1.0, 1.0));
     }
 
     /// Renders a 2D texture with the specified transformation and color tint.
@@ -1008,9 +1056,8 @@ impl RenderDevice {
     /// If the texture is not loaded, an error message will be logged.
     pub fn draw_texture2d<T: ITransform>(&mut self, transform : T, image_texture: &mut ImageTexture, color: Vector4<f32>) {
         match image_texture {
-            ImageTexture::Loaded { id, dimensions } => {
-                let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, Vector2::new(0.0, 0.0), Vector2::new(dimensions.x as f32, dimensions.y as f32));
-                self.draw_texture2di_internal(transform, *id, color, uv_buffer);
+            ImageTexture::Loaded { id, dimensions: _ } => {
+                self.draw_texture2di_internal(transform, *id, color, Vector4::new(1.0, 1.0, 1.0, 1.0), Vector2::new(1.0, 1.0));
             }
             _ => {
                 eprintln!("Texture not loaded");
@@ -1025,20 +1072,25 @@ impl RenderDevice {
     /// If the texture is not loaded or an error occurs, a message will be logged.
     pub fn draw_sub_texture2d<T: ITransform>(&mut self, transform : T, point : Vector2<f32>, size : Vector2<f32>, image_texture: &mut ImageTexture, color: Vector4<f32>) {
         match image_texture {
-            ImageTexture::Loaded { id, dimensions } => {
-                let uv_buffer = utils::generate_uv_coords(dimensions.x, dimensions.y, point, size); 
-                self.draw_texture2di_internal(transform, *id, color, uv_buffer);
+            ImageTexture::Loaded { id, dimensions: _ } => {
+                self.draw_texture2di_internal(transform, *id, color, Vector4::new(size.x, size.y, point.x, point.y), Vector2::new(1.0, 1.0));
             }
             _ => {
                 eprintln!("Texture not loaded"); 
             }
         }
     }
-
-    /// Renders a specific subregion of an 2D texture from the render id
-    pub fn draw_sub_texture2di<T : ITransform>(&mut self, transform : T, point : Vector2<f32>, size : Vector2<f32>, texture_id : u32, texture_dimensions : Vector2<u32>, color : Vector4<f32>) {
-        let uv_buffer = utils::generate_uv_coords(texture_dimensions.x, texture_dimensions.y, point, size);
-        self.draw_texture2di_internal(transform, texture_id, color, uv_buffer);
+    
+    /// Renders a 2D texture with the specified transformation, color tint, and UV transformation.
+    pub fn draw_texture2d_uvt<T : ITransform>(&mut self, transform : T, image_texture : &mut ImageTexture, color : Vector4<f32>, uv_transform : Vector4<f32>, uv_scale : Vector2<f32>) {
+        match image_texture {
+            ImageTexture::Loaded { id, dimensions: _ } => {
+                self.draw_texture2di_internal(transform, *id, color, uv_transform, uv_scale);
+            }
+            _ => {
+                eprintln!("Texture not loaded"); 
+            }
+        }
     }
 
     /// Renders a 2D texture to the screen using the provided transformation and color tint.
@@ -1047,45 +1099,26 @@ impl RenderDevice {
     /// Assumes the full texture is rendered, and the texture size is used to generate correct UV coordinates.
     /// If the texture is not loaded or there are issues with the texture, it may fail to render and log an error.
     pub fn draw_texture2di<T: ITransform>(&mut self, transform : T, texture_size : Vector2<f32>, texture_id: u32, color: Vector4<f32>) {
-        let uv_buffer = utils::generate_uv_coords(texture_size.x as u32, texture_size.y as u32, Vector2::new(0.0, 0.0), Vector2::new(texture_size.x, texture_size.y)); 
-        self.draw_texture2di_internal(transform, texture_id, color, uv_buffer);
+        self.draw_texture2di_internal(transform, texture_id, color, Vector4::new(1.0, 1.0, 1.0, 1.0), texture_size);
     }
 
-    /// Renders a 2D texture with a given transformation, color filter, and UV mapping.
-    /// This internal function handles the OpenGL setup to apply the transformation and color to a texture, 
-    /// and then renders it using the provided texture ID and UV coordinates. 
-    /// The transformation includes position, scale, and rotation, and the color is applied as a filter to the texture.
-    /// Assumes UV coordinates are provided in `uv_buffer`, and the corresponding OpenGL buffers are set up for rendering.
-    /// If the texture shape is missing, an error message is logged.
-    fn draw_texture2di_internal<T: ITransform>(&mut self, transform : T, texture_id: u32, color: Vector4<f32>, uv_buffer : Vec<f32>) {
+    fn draw_texture2di_internal<T : ITransform>(&mut self, transform : T, texture_id : u32, color : Vector4<f32>, uv_transform : Vector4<f32>, uv_scale : Vector2<f32>) {
         let shape = self.render_shapes.get("texture_shape").copied();
         match shape {
             Some(shape) => {
                 unsafe {
-                    //change buffer data
-                    gl::BindBuffer(gl::ARRAY_BUFFER, shape.tbo);
-                    gl::BufferData(
-                        gl::ARRAY_BUFFER,
-                        (uv_buffer.len() * std::mem::size_of::<f32>()) as isize,
-                        uv_buffer.as_ptr() as *const _,
-                        gl::DYNAMIC_DRAW
-                    );
-                    gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-                    
-                    //draw
-                    gl::Enable(gl::TEXTURE_2D);
                     gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "p_mat"), 1, gl::FALSE, self.projection_matrix.as_ptr());
                     gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
                     gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
                     gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
+                    gl::Uniform4f(self.get_uniform_location(self.shader_program, "uvTransform"), uv_transform.x, uv_transform.y, uv_transform.z, uv_transform.w);
+                    gl::Uniform2f(self.get_uniform_location(self.shader_program, "uvScale"), uv_scale.x, uv_scale.y);
                     gl::ActiveTexture(gl::TEXTURE0);
                     gl::BindTexture(gl::TEXTURE_2D, texture_id);
                     gl::Uniform1i(self.get_uniform_location(self.shader_program, "textureSampler"), 0);
-
                     gl::BindVertexArray(shape.vao);
                     gl::DrawElements(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
                     gl::BindVertexArray(0);
-                    gl::Disable(gl::TEXTURE_2D);
                 }
             }
             None => {
@@ -1253,6 +1286,7 @@ impl RenderDevice {
                     gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "v_mat"), 1, gl::FALSE, self.view_matrix.as_ptr());
                     gl::UniformMatrix4fv(self.get_uniform_location(self.shader_program, "m_mat"), 1, gl::FALSE, transform.get_model_matrix().as_ptr());
                     gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
+                    gl::Uniform1i(self.get_uniform_location(self.shader_program,"isSolid"), 1);
                     gl::BindVertexArray(shape.vao);
                     gl::DrawElements(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
                     gl::BindVertexArray(0);
@@ -1281,6 +1315,7 @@ impl RenderDevice {
                     gl::Uniform4f(self.get_uniform_location(self.shader_program, "vertexColor"), color.x, color.y, color.z, color.w);
                     gl::Uniform1f(self.get_uniform_location(self.shader_program, "borderWidth"), line_width);
                     gl::Uniform1f(self.get_uniform_location(self.shader_program, "aspect"), aspect);
+                    gl::Uniform1i(self.get_uniform_location(self.shader_program,"isSolid"), 0);
                     gl::BindVertexArray(shape.vao);
                     gl::DrawElements(gl::TRIANGLES, shape.index_count as i32, gl::UNSIGNED_INT, std::ptr::null());
                     gl::BindVertexArray(0);
